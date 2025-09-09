@@ -144,6 +144,7 @@ The daemon comes with several pre-built plugins. Incoming messages are checked a
 | `BulkAckPlugin`         | `ok`, `go`, `fuck` | Performs a bulk acknowledgement of all recent events for the sender.                                    |
 | `HistoryPlugin`         | `history`          | Responds with the last 5 messages that were sent to the requesting user.                                |
 | `SignaturePlugin`       | (n/a)              | Appends a signature to all outgoing messages.                                                           |
+| `SmsLoggerPlugin`       | (n/a)              | Logs all sent messages to the `smsLog` database table.                                                  |
 | `ZzzDefaultReplyPlugin` | (any other text)   | A fallback that replies with a "bad message" response if no other plugin handles the SMS.               |
 
 ## Extending the Daemon (Creating a New Plugin)
