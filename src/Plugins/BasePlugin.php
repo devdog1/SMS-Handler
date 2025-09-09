@@ -81,7 +81,7 @@ abstract class BasePlugin implements IPlugin
     /**
      * The main handler method that must be implemented by concrete plugins.
      */
-    abstract public function handle(array $message): ?string;
+    abstract public function handleIncoming(array $message): ?string;
 
     /**
      * Default implementation for handling outgoing messages.

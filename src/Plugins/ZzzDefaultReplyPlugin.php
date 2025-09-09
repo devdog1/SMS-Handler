@@ -16,7 +16,7 @@ class ZzzDefaultReplyPlugin extends BasePlugin
      * @param array $message The incoming message.
      * @return string The default response message.
      */
-    public function handle(array $message): ?string
+    public function handleIncoming(array $message): ?string
     {
         $this->log("Message from {$message['sender']} was not handled by other plugins. Sending default reply.");
 

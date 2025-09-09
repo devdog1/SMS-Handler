@@ -14,7 +14,7 @@ class BulkAckPlugin extends BasePlugin
      * @param array $message The incoming message.
      * @return string|null The response message or null.
      */
-    public function handle(array $message): ?string
+    public function handleIncoming(array $message): ?string
     {
         $text = $message['text'];
         $sender = $message['sender'];

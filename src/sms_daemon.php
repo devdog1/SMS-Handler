@@ -136,7 +136,7 @@ while (true) {
             log_message("Found " . count($incomingMessages) . " new message(s).");
             foreach ($incomingMessages as $msg) {
                 log_message("Processing message ID {$msg['id']} from {$msg['sender']}.");
-                $response = $pluginManager->handleMessage($msg);
+                $response = $pluginManager->dispatchIncoming($msg);
 
                 if ($response) {
                     log_message("Plugin provided a response. Sending reply to {$msg['sender']}.");

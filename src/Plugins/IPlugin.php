@@ -19,7 +19,7 @@ interface IPlugin
      * @return string|null A response message to be sent back to the sender.
      *                     Return null if this plugin does not handle the incoming message.
      */
-    public function handle(array $message): ?string;
+    public function handleIncoming(array $message): ?string;
 
     /**
      * Handles an outgoing message before it is sent.

@@ -77,21 +77,21 @@ class PluginManager
     }
 
     /**
-     * Passes a message to all loaded plugins until one handles it.
+     * Passes an incoming message to all loaded plugins until one handles it.
      * @param array $message The message to be handled.
      * @return string|null The response from the plugin, or null if no plugin handled it.
      */
-    public function handleMessage(array $message): ?string
+    public function dispatchIncoming(array $message): ?string
     {
-        $this->log("Passing message from {$message['sender']} to " . count($this->plugins) . " plugins.");
+        $this->log("Dispatching incoming message from {$message['sender']} to " . count($this->plugins) . " plugins.");
         foreach ($this->plugins as $plugin) {
-            $response = $plugin->handle($message);
+            $response = $plugin->handleIncoming($message);
             if ($response !== null) {
-                $this->log("Message handled by " . get_class($plugin));
+                $this->log("Incoming message handled by " . get_class($plugin));
                 return $response;
             }
         }
-        $this->log("No plugin handled the message.");
+        $this->log("No plugin handled the incoming message.");
         return null;
     }
 

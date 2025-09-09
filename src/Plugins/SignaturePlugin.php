@@ -16,7 +16,7 @@ class SignaturePlugin extends BasePlugin
      * @param array $message The incoming message data.
      * @return null
      */
-    public function handle(array $message): ?string
+    public function handleIncoming(array $message): ?string
     {
         return null;
     }
