@@ -66,6 +66,11 @@ class Modem
         }
     }
 
+    public function isConnected(): bool
+    {
+        return $this->socket !== null;
+    }
+
     /**
      * Disconnects from the modem.
      */

@@ -70,12 +70,22 @@ if (!is_dir($failedDir)) {
 // --- Main Loop ---
 log_message("Entering main processing loop.");
 while (true) {
-    // 1. Process outgoing message queue
-    log_message("Checking for outgoing messages in {$outgoingDir}");
-    $files = @scandir($outgoingDir) ?: [];
-    $sentCount = 0;
+    try {
+        // --- Connection Management ---
+        if (!$modem->isConnected()) {
+            log_message("Modem is not connected. Attempting to connect...");
+            if (!$modem->connect()) {
+                log_message("Modem connection failed. Sleeping for 10 seconds before retry.");
+                sleep(10);
+                continue; // Restart the loop to try connecting again
+            }
+            log_message("Modem connected successfully.");
+        }
 
-    if ($modem->connect()) {
+        // --- 1. Process Outgoing Messages ---
+        log_message("Checking for outgoing messages in {$outgoingDir}");
+        $files = @scandir($outgoingDir) ?: [];
+        $sentCount = 0;
         foreach ($files as $file) {
             if ($file === '.' || $file === '..') continue;
             $filePath = $outgoingDir . $file;
@@ -83,7 +93,7 @@ while (true) {
 
             log_message("Processing file: {$file}");
             $message = file_get_contents($filePath);
-            $number = substr($file, -10); // Assumes last 10 digits are the number
+            $number = substr($file, -10);
 
             if (strlen($number) !== 10) {
                  log_message("Invalid phone number format in filename: {$file}. Moving to failed directory.");
@@ -91,12 +101,7 @@ while (true) {
                  continue;
             }
 
-            $outgoingMessageData = [
-                'number' => $number,
-                'message' => $message,
-            ];
-
-            // Pass the outgoing message through the plugin system
+            $outgoingMessageData = ['number' => $number, 'message' => $message];
             $processedMessageData = $pluginManager->dispatchOutgoing($outgoingMessageData);
 
             if ($processedMessageData === null) {
@@ -119,18 +124,15 @@ while (true) {
                 break;
             }
 
-            log_message("Sleeping for {$config['daemon']['send_interval']} second(s).");
+            // Pause between sends to be polite to the modem
             sleep($config['daemon']['send_interval']);
         }
-        $modem->disconnect();
-    } else {
-        log_message("Could not connect to modem to send. Will retry next loop.");
-    }
-    log_message("Finished processing outgoing messages for this cycle.");
+        if ($sentCount > 0) {
+            log_message("Finished processing outgoing messages for this cycle.");
+        }
 
-    // 2. Process incoming messages
-    log_message("Checking for incoming messages.");
-    if ($modem->connect()) {
+        // --- 2. Process Incoming Messages ---
+        log_message("Checking for incoming messages.");
         $incomingMessages = $modem->listMessages();
         if (!empty($incomingMessages)) {
             log_message("Found " . count($incomingMessages) . " new message(s).");
@@ -149,11 +151,15 @@ while (true) {
         } else {
             log_message("No new messages found.");
         }
+
+    } catch (\Exception $e) {
+        // Catch socket errors from the Modem class
+        log_message("An exception occurred: " . $e->getMessage());
+        log_message("Disconnecting modem due to error.");
         $modem->disconnect();
-    } else {
-        log_message("Could not connect to modem to receive. Will retry next loop.");
     }
 
+    // --- Sleep before next cycle ---
     log_message("Main loop cycle finished. Sleeping for {$config['daemon']['loop_interval']} seconds.");
     sleep($config['daemon']['loop_interval']);
 }
