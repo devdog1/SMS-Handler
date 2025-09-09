@@ -33,8 +33,8 @@ return [
 
     'plugins' => [
         'block_numbers' => [
-            // Add numbers here to block them from sending or receiving.
-            // '5551234567',
+            // Add numbers here without a leading '+' to block them.
+            // e.g., '5551234567'
         ],
     ],
 ];

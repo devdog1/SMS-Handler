@@ -149,7 +149,7 @@ class Modem
                 $messages[] = [
                     'id' => (int)$matches[1],
                     'status' => $matches[2],
-                    'sender' => $matches[3],
+                    'sender' => ltrim($matches[3], '+'), // Normalize by removing leading '+'
                     'timestamp' => $matches[4],
                     'text' => trim($matches[5]),
                 ];
