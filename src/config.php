@@ -8,7 +8,7 @@ return [
     'debug' => true,
 
     'modem' => [
-        'host' => '64.93.111.9',
+        'host' => '192.168.1.100', // Example IP for a modem on the local network
         'port' => 5000,
         'timeout' => 10,
     ],
@@ -20,9 +20,9 @@ return [
 
     'database' => [
         'host' => 'localhost',
-        'user' => 'zabbix',
+        'user' => 'sms_user',
         'pass' => 'password', // IMPORTANT: Change this password
-        'name' => 'zabbix',
+        'name' => 'sms_daemon_db',
     ],
 
     'daemon' => [
@@ -33,14 +33,12 @@ return [
 
     'plugins' => [
         'block_numbers' => [
-            // Add numbers here without a leading '+' to block them.
-            // e.g., '5551234567'
+            // Add 10-digit numbers here to block them from sending or receiving.
+            // e.g., '5551234567',
         ],
         'allowed_area_codes' => [
             // If this list is not empty, only messages to/from these area codes will be processed.
-            '204',
-            '431',
-            '584',
+            // e.g., '204', '431', '584',
         ],
     ],
 ];

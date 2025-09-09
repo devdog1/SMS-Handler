@@ -41,17 +41,16 @@ return [
         'host' => 'localhost',
         'user' => 'your_user',
         'pass' => 'your_password',
-        'name' => 'zabbix',
+        'name' => 'sms_daemon_db',
     ],
     'plugins' => [
         'block_numbers' => [
-            '5551112222',
-            '5559998888',
+            '5551234567',
+            '5557654321',
         ],
         'allowed_area_codes' => [
             '204',
             '431',
-            '584',
         ],
     ],
 ];
