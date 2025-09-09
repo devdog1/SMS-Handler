@@ -56,6 +56,38 @@ php src/sms_daemon.php
 
 It's recommended to run this as a background process using a process manager like `supervisor` or `systemd` to ensure it runs continuously and is restarted on failure.
 
+## Running as a Service (`systemd`)
+
+For production environments, it is recommended to run the daemon as a `systemd` service. A sample service file is provided in `deployment/sms-daemon.service`.
+
+1.  **Edit the service file:**
+    Open `deployment/sms-daemon.service` and update the `User`, `Group`, `WorkingDirectory`, and `ExecStart` paths to match your system's configuration. The paths must be absolute.
+
+2.  **Copy the service file to systemd:**
+    ```bash
+    sudo cp deployment/sms-daemon.service /etc/systemd/system/sms-daemon.service
+    ```
+
+3.  **Reload the systemd daemon:**
+    ```bash
+    sudo systemctl daemon-reload
+    ```
+
+4.  **Enable the service to start on boot:**
+    ```bash
+    sudo systemctl enable sms-daemon.service
+    ```
+
+5.  **Start the service:**
+    ```bash
+    sudo systemctl start sms-daemon.service
+    ```
+
+6.  **Check the service status:**
+    ```bash
+    sudo systemctl status sms-daemon.service
+    ```
+
 ## Included Plugins
 
 The daemon comes with several pre-built plugins. Incoming messages are checked against each plugin in alphabetical order of the plugin's filename.
