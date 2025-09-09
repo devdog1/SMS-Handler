@@ -146,10 +146,15 @@ class Modem
         foreach ($rawMessages as $rawMessage) {
             $pattern = '/(\d+),\"([^\"]+)\",\"([^\"]+)\",\"[^\"]*\",\"([^\"]+)\"\r\n(.*?)(\r\nOK\r\n|\Z)/s';
             if (preg_match($pattern, $rawMessage, $matches)) {
+                $number = ltrim($matches[3], '+');
+                // Also strip leading '1' for US-like numbers to get a 10-digit number
+                if (strlen($number) === 11 && str_starts_with($number, '1')) {
+                    $number = substr($number, 1);
+                }
                 $messages[] = [
                     'id' => (int)$matches[1],
                     'status' => $matches[2],
-                    'sender' => ltrim($matches[3], '+'), // Normalize by removing leading '+'
+                    'sender' => $number,
                     'timestamp' => $matches[4],
                     'text' => trim($matches[5]),
                 ];
