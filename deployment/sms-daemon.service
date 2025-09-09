@@ -4,15 +4,14 @@ After=network.target
 
 [Service]
 Type=simple
-# Change this to the user you want the daemon to run as.
-# 'www-data' is a common user for web services, but a dedicated user is recommended.
-User=www-data
-Group=www-data
+# It is recommended to run the daemon as its own dedicated user.
+# See the "Production Setup" section in README.md for instructions.
+User=sms-daemon
+Group=sms-daemon
 
-# Replace this path with the absolute path to your project's root directory.
-# The WorkingDirectory should be the 'src' folder where the daemon script is located.
-WorkingDirectory=/var/www/html/sms-daemon/src
-ExecStart=/usr/bin/php /var/www/html/sms-daemon/src/sms_daemon.php
+# The recommended installation path for the application.
+WorkingDirectory=/opt/sms-daemon/src
+ExecStart=/usr/bin/php /opt/sms-daemon/src/sms_daemon.php
 
 # Restart the service if it fails
 Restart=on-failure

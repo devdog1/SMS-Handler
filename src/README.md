@@ -56,44 +56,74 @@ return [
 ];
 ```
 
-## Usage
+## Production Setup and Usage
 
-To run the daemon, execute the main script from your terminal:
+For a production environment, it is highly recommended to run the daemon as its own dedicated user and manage it with a process manager like `systemd`.
+
+### 1. Installation
+
+Copy the application files to a standard location, such as `/opt`.
 
 ```bash
-php src/sms_daemon.php
+sudo cp -r . /opt/sms-daemon
 ```
 
-It's recommended to run this as a background process using a process manager like `supervisor` or `systemd` to ensure it runs continuously and is restarted on failure.
+### 2. User and Group Setup
 
-## Running as a Service (`systemd`)
+These steps ensure that the daemon runs as a non-privileged user (`sms-daemon`) and can safely interact with files created by another user (e.g., your web server user, `www-data`).
 
-For production environments, it is recommended to run the daemon as a `systemd` service. A sample service file is provided in `deployment/sms-daemon.service`.
-
-1.  **Edit the service file:**
-    Open `deployment/sms-daemon.service` and update the `User`, `Group`, `WorkingDirectory`, and `ExecStart` paths to match your system's configuration. The paths must be absolute.
-
-2.  **Copy the service file to systemd:**
+1.  **Create a dedicated user and group for the daemon:**
     ```bash
-    sudo cp deployment/sms-daemon.service /etc/systemd/system/sms-daemon.service
+    sudo groupadd --system sms-daemon
+    sudo useradd --system --no-create-home --gid sms-daemon sms-daemon
     ```
 
-3.  **Reload the systemd daemon:**
+2.  **Create a shared group for the spool directory:**
+    This group will be shared by the `sms-daemon` user and the user that creates the message files (e.g., `www-data`).
+    ```bash
+    sudo groupadd sms-spool
+    ```
+
+3.  **Add users to the shared group:**
+    ```bash
+    sudo usermod -a -G sms-spool sms-daemon
+    sudo usermod -a -G sms-spool www-data  # Replace www-data with your web user if different
+    ```
+
+4.  **Set permissions for the spool directory:**
+    These commands give ownership of the spool directory to the shared group and ensure that new files created within it inherit the correct group permissions.
+    ```bash
+    sudo chown -R root:sms-spool /var/spool/sms
+    sudo chmod -R 775 /var/spool/sms
+    sudo chmod g+s /var/spool/sms
+    ```
+    **Note:** For the group permissions to work correctly, the application that creates the message files must have a `umask` of `002`. This ensures files are created with group-write permissions (`664`).
+
+### 3. Running as a Service (`systemd`)
+
+1.  **Copy the service file:**
+    A sample service file is provided. Copy it to the systemd directory.
+    ```bash
+    sudo cp /opt/sms-daemon/deployment/sms-daemon.service /etc/systemd/system/sms-daemon.service
+    ```
+
+2.  **Reload the systemd daemon:**
     ```bash
     sudo systemctl daemon-reload
     ```
 
-4.  **Enable the service to start on boot:**
+3.  **Enable the service to start on boot:**
     ```bash
     sudo systemctl enable sms-daemon.service
     ```
 
-5.  **Start the service:**
+4.  **Start the service:**
     ```bash
     sudo systemctl start sms-daemon.service
     ```
 
-6.  **Check the service status:**
+5.  **Check the service status:**
+    You can check the status and view recent logs with this command:
     ```bash
     sudo systemctl status sms-daemon.service
     ```
