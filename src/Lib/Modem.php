@@ -127,15 +127,15 @@ class Modem
     {
         $this->log("Listing all messages from modem.");
         $this->socket->write("AT+CMGL=\"ALL\"\r");
-        $buf = $this->socket->read(0); // Read until timeout
+        $buf = $this->readUntilTerminator();
 
-        if (strpos($buf, 'OK') === false && strpos($buf, 'ERROR') === false) {
-            $this->log("Failed to list messages, unexpected response: " . trim($buf));
+        if (trim($buf) === '') {
+            $this->log("Did not receive a response for AT+CMGL.");
             return [];
         }
 
-        if (trim($buf) == "OK" || trim($buf) == "\r\nOK\r\n") {
-            $this->log("No messages on modem.");
+        if (strpos($buf, '+CMGL:') === false) {
+            $this->log("No messages on modem or unexpected response.");
             return [];
         }
 
@@ -187,6 +187,40 @@ class Modem
             return false;
         }
         return true;
+    }
+
+    /**
+     * Reads from the socket in a loop until a terminator string is found or a timeout occurs.
+     * @param array $terminators An array of strings to look for.
+     * @param int $timeout The overall timeout in seconds for the operation.
+     * @return string The buffer read from the socket.
+     */
+    private function readUntilTerminator(array $terminators = ['OK', 'ERROR'], int $timeout = 10): string
+    {
+        $buffer = '';
+        $startTime = time();
+
+        while (time() - $startTime < $timeout) {
+            // Note: The socket itself has a read timeout (SO_RCVTIMEO).
+            // This loop adds an overall timeout to the entire read operation.
+            $chunk = $this->socket->read(2048);
+            if ($chunk !== '') {
+                $buffer .= $chunk;
+                $trimmedBuffer = trim($buffer);
+                foreach ($terminators as $terminator) {
+                    if (str_ends_with($trimmedBuffer, $terminator)) {
+                        return $buffer; // Found terminator, return immediately.
+                    }
+                }
+            } else {
+                // Small sleep to prevent a tight loop if socket is non-blocking
+                // and there's no data.
+                usleep(100000); // 100ms
+            }
+        }
+
+        $this->log("Timed out after {$timeout} seconds waiting for one of: " . implode(', ', $terminators));
+        return $buffer;
     }
 
     public function __destruct()

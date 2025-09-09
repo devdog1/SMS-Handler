@@ -10,7 +10,7 @@ return [
     'modem' => [
         'host' => '64.93.111.9',
         'port' => 5000,
-        'timeout' => 125,
+        'timeout' => 10,
     ],
 
     'spool' => [
