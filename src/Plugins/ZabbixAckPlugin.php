@@ -19,17 +19,18 @@ class ZabbixAckPlugin extends BasePlugin
         $text = $message['text'];
         $sender = $message['sender'];
 
-        // Looks for a number at the start of the string, and "E:" followed by a number anywhere.
-        if (preg_match('/^(\d+)/', $text, $durationMatch) && preg_match('/E:(\d+)/', $text, $eventMatch)) {
+        // Looks for a number at the start, followed by "E:" and a number anywhere.
+        // The /s modifier (dotall) ensures `.` matches newlines, for multi-line messages.
+        if (preg_match('/^(\d+).*E:(\d+)/s', $text, $matches)) {
             $this->log("Handling Zabbix Ack message from {$sender}.");
 
-            $duration = (int)$durationMatch[1];
+            $duration = (int)$matches[1];
             if ($duration > 1440) {
                 $duration = 1440; // Cap duration at 24 hours
                 $this->log("Duration capped at 1440 minutes.");
             }
 
-            $eventId = (int)$eventMatch[1];
+            $eventId = (int)$matches[2];
 
             if ($this->dbConnect()) {
                 $query = "INSERT INTO acknowledgements (sendTo, eventId, startTime, duration) VALUES (?, ?, NOW(), ?)";
