@@ -62,11 +62,15 @@ For a production environment, it is highly recommended to run the daemon as its 
 
 ### 1. Installation
 
-Copy the application files to a standard location, such as `/opt`.
+1.  **Copy application files** to a standard location, such as `/opt`.
+    ```bash
+    sudo cp -r . /opt/sms-daemon
+    ```
 
-```bash
-sudo cp -r . /opt/sms-daemon
-```
+2.  **Set ownership** of the application directory to the dedicated user.
+    ```bash
+    sudo chown -R sms-daemon:sms-daemon /opt/sms-daemon
+    ```
 
 ### 2. User and Group Setup
 
