@@ -13,19 +13,20 @@ use \ReflectionClass;
  */
 abstract class BasePlugin implements IPlugin
 {
+    protected $config;
     protected $dbConfig;
     protected $debug;
     protected $dbh;
 
     /**
      * BasePlugin constructor.
-     * @param array $dbConfig The database configuration array.
-     * @param bool $debug Flag to enable or disable debug logging.
+     * @param array $config The main application configuration array.
      */
-    public function __construct(array $dbConfig, bool $debug)
+    public function __construct(array $config)
     {
-        $this->dbConfig = $dbConfig;
-        $this->debug = $debug;
+        $this->config = $config;
+        $this->dbConfig = $config['database'] ?? [];
+        $this->debug = $config['debug'] ?? false;
     }
 
     /**

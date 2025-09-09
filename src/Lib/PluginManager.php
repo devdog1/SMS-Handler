@@ -14,25 +14,22 @@ use \ReflectionClass;
 class PluginManager
 {
     private $plugins = [];
-    private $dbConfig;
-    private $debug;
+    private $config;
 
     /**
      * PluginManager constructor.
      * @param string $pluginDir The directory to scan for plugins.
-     * @param array $dbConfig The database configuration for plugins.
-     * @param bool $debug Flag to enable debug logging.
+     * @param array $config The main application configuration.
      */
-    public function __construct(string $pluginDir, array $dbConfig, bool $debug = false)
+    public function __construct(string $pluginDir, array $config)
     {
-        $this->dbConfig = $dbConfig;
-        $this->debug = $debug;
+        $this->config = $config;
         $this->loadPlugins($pluginDir);
     }
 
     private function log(string $message): void
     {
-        if ($this->debug) {
+        if ($this->config['debug'] ?? false) {
             error_log("SMS-DAEMON-PLUGINMAN: " . $message);
         }
     }
@@ -66,7 +63,7 @@ class PluginManager
                     continue;
                 }
 
-                $plugin = new $className($this->dbConfig, $this->debug);
+                $plugin = new $className($this->config);
 
                 if ($plugin instanceof IPlugin) {
                     $this->plugins[] = $plugin;

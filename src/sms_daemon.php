@@ -59,7 +59,7 @@ log_message("Daemon starting up. Debug mode is " . ($debug ? 'ON' : 'OFF'));
 
 // --- Initialization ---
 $modem = new Modem($config['modem'], $debug);
-$pluginManager = new PluginManager(ROOT_DIR . '/Plugins', $config['database'], $debug);
+$pluginManager = new PluginManager(ROOT_DIR . '/Plugins', $config);
 
 $outgoingDir = $config['spool']['outgoing'];
 $failedDir = $config['spool']['failed'];

@@ -5,35 +5,43 @@ namespace SmsDaemon\Plugins;
 /**
  * Class BlockNumberPlugin
  *
- * An example plugin that demonstrates cancelling an outgoing message.
- * It blocks any message intended for a specific hardcoded phone number.
+ * Blocks incoming and outgoing messages to and from numbers specified in the config file.
  */
 class BlockNumberPlugin extends BasePlugin
 {
-    private const BLOCKED_NUMBER = '5556667777';
+    private $blockList = [];
 
-    /**
-     * This plugin does not handle incoming messages, so it returns null.
-     *
-     * @param array $message The incoming message data.
-     * @return null
-     */
-    public function handleIncoming(array $message): ?string
+    public function __construct(array $config)
     {
-        return null;
+        parent::__construct($config);
+        $this->blockList = $this->config['plugins']['block_numbers'] ?? [];
     }
 
     /**
-     * Checks if the recipient number is on the blocklist. If it is,
-     * it cancels the message by returning null.
+     * Checks if the sender of an incoming message is on the blocklist.
+     *
+     * @param array $message The incoming message data.
+     * @return null Returns null to silently drop the message if the sender is blocked.
+     */
+    public function handleIncoming(array $message): ?string
+    {
+        if (in_array($message['sender'], $this->blockList)) {
+            $this->log("Blocking incoming message from blocked number: {$message['sender']}");
+            return null; // Silently drop the message
+        }
+        return null; // This plugin does not generate responses, so always return null for unblocked numbers.
+    }
+
+    /**
+     * Checks if the recipient of an outgoing message is on the blocklist.
      *
      * @param array $messageData The data for the outgoing message.
      * @return array|null The message data if allowed, or null to block.
      */
     public function handleOutgoing(array $messageData): ?array
     {
-        if ($messageData['number'] === self::BLOCKED_NUMBER) {
-            $this->log("Blocking outgoing message to the configured blocked number: " . self::BLOCKED_NUMBER);
+        if (in_array($messageData['number'], $this->blockList)) {
+            $this->log("Blocking outgoing message to blocked number: {$messageData['number']}");
             return null; // Cancel the message
         }
 

@@ -43,6 +43,12 @@ return [
         'pass' => 'your_password',
         'name' => 'zabbix',
     ],
+    'plugins' => [
+        'block_numbers' => [
+            '5551112222',
+            '5559998888',
+        ],
+    ],
 ];
 ```
 
@@ -94,9 +100,11 @@ The daemon comes with several pre-built plugins. Incoming messages are checked a
 
 | Plugin                  | Trigger Keyword(s) | Description                                                                                             |
 | ----------------------- | ------------------ | ------------------------------------------------------------------------------------------------------- |
+| `BlockNumberPlugin`     | (n/a)              | Blocks incoming/outgoing messages from/to numbers in the `plugins.block_numbers` config list.           |
 | `ZabbixAckPlugin`       | `120 E:54321`      | Acknowledges a Zabbix event. The first number is the duration in minutes.                               |
 | `BulkAckPlugin`         | `ok`, `go`, `fuck` | Performs a bulk acknowledgement of all recent events for the sender.                                    |
 | `HistoryPlugin`         | `history`          | Responds with the last 5 messages that were sent to the requesting user.                                |
+| `SignaturePlugin`       | (n/a)              | Appends a signature to all outgoing messages.                                                           |
 | `ZzzDefaultReplyPlugin` | (any other text)   | A fallback that replies with a "bad message" response if no other plugin handles the SMS.               |
 
 ## Extending the Daemon (Creating a New Plugin)
@@ -105,10 +113,9 @@ The plugin system makes it easy to add new functionality. To create a new plugin
 
 1.  Create a new PHP file in the `src/Plugins/` directory (e.g., `MyNewPlugin.php`).
 2.  Define a class that extends `BasePlugin`.
-3.  Implement the `handle(array $message): ?string` method.
-    -   Check if the incoming message is one your plugin should handle.
-    -   If it is, perform your logic and return a string that will be sent back as an SMS response.
-    -   If the message is not for your plugin, return `null`.
+3.  Implement the `handleIncoming(array $message): ?string` and/or `handleOutgoing(array $messageData): ?array` methods.
+    -   For incoming messages, check if the message is one your plugin should handle. If so, perform your logic and return a response string. Otherwise, return `null`.
+    -   For outgoing messages, perform your logic and return the modified message data, or return `null` to cancel sending.
 
 ### Example Plugin
 
@@ -121,7 +128,7 @@ namespace SmsDaemon\Plugins;
 
 class PingPlugin extends BasePlugin
 {
-    public function handle(array $message): ?string
+    public function handleIncoming(array $message): ?string
     {
         if (strtolower(trim($message['text'])) === 'ping') {
             $this->log("Handling ping request from {$message['sender']}.");

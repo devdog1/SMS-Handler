@@ -30,4 +30,11 @@ return [
         'loop_interval' => 5, // sleep in seconds at the end of the main loop
         'send_batch_size' => 10, // max messages to send per cycle
     ],
+
+    'plugins' => [
+        'block_numbers' => [
+            // Add numbers here to block them from sending or receiving.
+            // '5551234567',
+        ],
+    ],
 ];
