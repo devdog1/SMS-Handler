@@ -84,6 +84,19 @@ abstract class BasePlugin implements IPlugin
     abstract public function handle(array $message): ?string;
 
     /**
+     * Default implementation for handling outgoing messages.
+     * Plugins can override this method to modify or cancel outgoing messages.
+     * By default, it does nothing and allows the message to be sent as-is.
+     *
+     * @param array $messageData The data for the outgoing message.
+     * @return array|null The (potentially modified) message data.
+     */
+    public function handleOutgoing(array $messageData): ?array
+    {
+        return $messageData;
+    }
+
+    /**
      * Destructor to ensure the database connection is closed.
      */
     public function __destruct()

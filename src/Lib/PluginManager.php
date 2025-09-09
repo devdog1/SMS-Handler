@@ -94,4 +94,25 @@ class PluginManager
         $this->log("No plugin handled the message.");
         return null;
     }
+
+    /**
+     * Passes an outgoing message through all loaded plugins.
+     * This allows plugins to modify the message or cancel it.
+     *
+     * @param array $messageData The message data to be processed.
+     * @return array|null The final, potentially modified, message data, or null if sending was cancelled.
+     */
+    public function dispatchOutgoing(array $messageData): ?array
+    {
+        $this->log("Dispatching outgoing message to " . count($this->plugins) . " plugins.");
+        foreach ($this->plugins as $plugin) {
+            $messageData = $plugin->handleOutgoing($messageData);
+            if ($messageData === null) {
+                $this->log("Outgoing message cancelled by plugin: " . get_class($plugin));
+                return null; // A plugin cancelled the message
+            }
+        }
+        $this->log("Finished processing outgoing message.");
+        return $messageData;
+    }
 }

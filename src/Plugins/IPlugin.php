@@ -20,4 +20,15 @@ interface IPlugin
      *                     Return null if this plugin does not handle the incoming message.
      */
     public function handle(array $message): ?string;
+
+    /**
+     * Handles an outgoing message before it is sent.
+     *
+     * Can be used to modify the message, recipient, or to cancel sending altogether.
+     *
+     * @param array $messageData The data for the outgoing message. Example: ['number' => '+1234567890', 'message' => 'Hello world']
+     *
+     * @return array|null The modified message data. Return null to cancel sending the message.
+     */
+    public function handleOutgoing(array $messageData): ?array;
 }

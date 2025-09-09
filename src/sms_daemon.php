@@ -91,12 +91,26 @@ while (true) {
                  continue;
             }
 
-            if ($modem->sendMessage($number, $message)) {
-                log_message("Successfully sent message from file {$file}. Deleting file.");
-                @unlink($filePath);
-            } else {
-                log_message("Failed to send message from file {$file}. Moving to failed directory.");
+            $outgoingMessageData = [
+                'number' => $number,
+                'message' => $message,
+            ];
+
+            // Pass the outgoing message through the plugin system
+            $processedMessageData = $pluginManager->dispatchOutgoing($outgoingMessageData);
+
+            if ($processedMessageData === null) {
+                log_message("Outgoing message to {$number} was cancelled by a plugin. Moving to failed directory.");
                 @rename($filePath, $failedDir . $file);
+            } else {
+                log_message("Sending message to {$processedMessageData['number']} after plugin processing.");
+                if ($modem->sendMessage($processedMessageData['number'], $processedMessageData['message'])) {
+                    log_message("Successfully sent message from file {$file}. Deleting file.");
+                    @unlink($filePath);
+                } else {
+                    log_message("Failed to send message from file {$file}. Moving to failed directory.");
+                    @rename($filePath, $failedDir . $file);
+                }
             }
 
             $sentCount++;
