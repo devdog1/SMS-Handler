@@ -36,5 +36,11 @@ return [
             // Add numbers here without a leading '+' to block them.
             // e.g., '5551234567'
         ],
+        'allowed_area_codes' => [
+            // If this list is not empty, only messages to/from these area codes will be processed.
+            '204',
+            '431',
+            '584',
+        ],
     ],
 ];
