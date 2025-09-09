@@ -138,6 +138,7 @@ The daemon comes with several pre-built plugins. Incoming messages are checked a
 
 | Plugin                  | Trigger Keyword(s) | Description                                                                                             |
 | ----------------------- | ------------------ | ------------------------------------------------------------------------------------------------------- |
+| `AckCheckPlugin`        | (n/a)              | Checks if an alert has an active acknowledgement before sending; prevents duplicate notifications.      |
 | `AreaCodeWhitelistPlugin` | (n/a)              | If configured, only allows messages from/to area codes in the `plugins.allowed_area_codes` list.      |
 | `BlockNumberPlugin`     | (n/a)              | Blocks incoming/outgoing messages from/to numbers in the `plugins.block_numbers` config list.           |
 | `ZabbixAckPlugin`       | `120 E:54321`      | Acknowledges a Zabbix event. The first number is the duration in minutes.                               |
