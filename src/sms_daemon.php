@@ -6,6 +6,9 @@ set_time_limit(0);
 // Use a consistent root directory path.
 define('ROOT_DIR', __DIR__);
 
+// Load polyfills for older PHP versions (e.g., 7.4.3)
+require_once ROOT_DIR . '/Lib/Polyfills.php';
+
 /**
  * A simple PSR-4 autoloader for the SmsDaemon namespace.
  * It maps the SmsDaemon\ namespace to the current directory (src/).
