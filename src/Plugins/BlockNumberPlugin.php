@@ -27,7 +27,7 @@ class BlockNumberPlugin extends BasePlugin
     {
         if (in_array($message['sender'], $this->blockList)) {
             $this->log("Blocking incoming message from blocked number: {$message['sender']}");
-            return null; // Silently drop the message
+            return ''; // Silently drop the message and stop further processing
         }
         return null; // This plugin does not generate responses, so always return null for unblocked numbers.
     }
