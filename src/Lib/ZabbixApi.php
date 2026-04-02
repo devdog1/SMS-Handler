@@ -222,6 +222,38 @@ class ZabbixApi
     }
 
     /**
+     * Retrieves a single user group by ID, including its members.
+     * @param int $userGroupId
+     * @return array|null The group data or null if not found.
+     */
+    public function getUserGroupById(int $userGroupId): ?array
+    {
+        $groups = $this->request('usergroup.get', [
+            'usrgrpids' => $userGroupId,
+            'selectUsers' => ['userid', 'username', 'name', 'surname'],
+        ]);
+
+        return ($groups && !empty($groups)) ? $groups[0] : null;
+    }
+
+    /**
+     * Checks if a specific user is a member of a specific user group.
+     * @param int $userId
+     * @param int $userGroupId
+     * @return bool
+     */
+    public function isUserInGroup(int $userId, int $userGroupId): bool
+    {
+        $users = $this->request('user.get', [
+            'userids' => $userId,
+            'usrgrpids' => $userGroupId,
+            'output' => ['userid'],
+        ]);
+
+        return ($users && !empty($users));
+    }
+
+    /**
      * Sanitizes a phone number by removing non-numeric characters.
      * Keeps only the last 10 digits if possible, or the whole number if it's shorter.
      * @param string $number
