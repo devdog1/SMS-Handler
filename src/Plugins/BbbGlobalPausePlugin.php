@@ -33,7 +33,7 @@ class BbbGlobalPausePlugin extends BasePlugin
         $zabbixConfig = $config['zabbix'] ?? [];
         $this->zabbixApi = new ZabbixApi(
             $zabbixConfig['url'] ?? '',
-            $zabbixConfig['token'] ?? '',
+            $zabbixConfig['user'] ?? '', $zabbixConfig['password'] ?? '',
             $this->debug
         );
         $this->cacheDuration = $zabbixConfig['cache_duration'] ?? 3600;
