@@ -38,4 +38,49 @@ if ($dbh->query($query) === TRUE) {
     echo "Error creating table: " . $dbh->error . "\n";
 }
 
+$query = "CREATE TABLE IF NOT EXISTS number_pause (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    phoneNumber VARCHAR(20) NOT NULL,
+    startTime DATETIME NOT NULL,
+    isPaused TINYINT(1) NOT NULL DEFAULT 0,
+    INDEX (phoneNumber)
+)";
+
+if ($dbh->query($query) === TRUE) {
+    echo "Table number_pause created successfully or already exists.\n";
+} else {
+    echo "Error creating table: " . $dbh->error . "\n";
+}
+
+$query = "CREATE TABLE IF NOT EXISTS acknowledgements (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sendTo VARCHAR(20) NOT NULL,
+    eventId BIGINT NOT NULL,
+    startTime DATETIME NOT NULL,
+    duration INT NOT NULL,
+    INDEX (sendTo, eventId)
+)";
+
+if ($dbh->query($query) === TRUE) {
+    echo "Table acknowledgements created successfully or already exists.\n";
+} else {
+    echo "Error creating table: " . $dbh->error . "\n";
+}
+
+$query = "CREATE TABLE IF NOT EXISTS smsLog (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sendTo VARCHAR(20) NOT NULL,
+    dateTime DATETIME NOT NULL,
+    message TEXT NOT NULL,
+    eventId BIGINT DEFAULT NULL,
+    INDEX (sendTo),
+    INDEX (eventId)
+)";
+
+if ($dbh->query($query) === TRUE) {
+    echo "Table smsLog created successfully or already exists.\n";
+} else {
+    echo "Error creating table: " . $dbh->error . "\n";
+}
+
 $dbh->close();
