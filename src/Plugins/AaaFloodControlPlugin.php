@@ -3,12 +3,12 @@
 namespace SmsDaemon\Plugins;
 
 /**
- * Class FloodControlPlugin
+ * Class AaaFloodControlPlugin
  *
  * Monitors the outgoing spool directory. If the number of pending messages
  * exceeds a threshold, it suppresses outgoing messages and sends a summary alert.
  */
-class FloodControlPlugin extends BasePlugin
+class AaaFloodControlPlugin extends BasePlugin
 {
     private $threshold;
     private $summaryNumber;
@@ -52,9 +52,9 @@ class FloodControlPlugin extends BasePlugin
         if (file_exists($floodFlagFile)) {
             $mtime = @filemtime($floodFlagFile);
             if (time() - $mtime < $this->lockoutTime) {
-                // Allow the summary message itself to bypass the lockout
-                if ($targetNumber === $this->summaryNumber && strpos($messageData['message'], '[FLOOD ALERT]') !== false) {
-                    $this->log("Allowing flood summary message to {$this->summaryNumber}.");
+                // Allow any flood summary alert messages to bypass the lockout
+                if (strpos($messageData['message'], '[FLOOD ALERT]') !== false) {
+                    $this->log("Allowing flood summary message to bypass lockout for {$targetNumber}.");
                     return $messageData;
                 }
 
@@ -74,7 +74,11 @@ class FloodControlPlugin extends BasePlugin
             // Create the lockout flag file
             touch($floodFlagFile);
 
-            // Send a summary alert message
+            // Remove existing pending messages for this number from the spool
+            $deletedCount = $this->clearSpoolForNumber($targetNumber);
+            $this->log("Deleted {$deletedCount} pending messages from spool for {$targetNumber}.");
+
+            // Send summary alert messages to both administrator and recipient
             $this->sendSummary($targetNumber, $count);
 
             // Suppress the current message that triggered the detection
@@ -112,27 +116,56 @@ class FloodControlPlugin extends BasePlugin
     }
 
     /**
-     * Queues a summary message to be sent via the daemon.
+     * Queues summary messages to be sent to both the administrator and the flooded recipient.
      * @param string $targetNumber The number being flooded.
      * @param int $count The current count of pending messages for that number.
      */
     private function sendSummary(string $targetNumber, int $count): void
     {
-        $message = "[FLOOD ALERT] There are currently {$count} pending SMS messages in the spool for number {$targetNumber}. Outgoing messages to this number are being suppressed for " . ($this->lockoutTime / 60) . " minutes.";
+        $adminMessage = "[FLOOD ALERT] There are currently {$count} pending SMS messages in the spool for number {$targetNumber}. Outgoing messages to this number are being suppressed for " . ($this->lockoutTime / 60) . " minutes.";
+        $recipientMessage = "[FLOOD ALERT] High volume of alerts detected. Further messages are being suppressed for " . ($this->lockoutTime / 60) . " minutes.";
 
-        if (strlen($this->summaryNumber) !== 10) {
-            $this->log("Invalid summary number configured: {$this->summaryNumber}. Cannot send summary.");
-            return;
-        }
-
-        // The daemon expects the last 10 characters of the filename to be the phone number.
-        $filename = uniqid() . $this->summaryNumber;
-        $filePath = rtrim($this->outgoingDir, '/') . '/' . $filename;
-
-        if (file_put_contents($filePath, $message) !== false) {
-            $this->log("Flood summary alert for {$targetNumber} queued for {$this->summaryNumber} (File: {$filename}).");
+        // 1. Send to administrator if configured
+        if (strlen($this->summaryNumber) === 10) {
+            $filename = uniqid() . $this->summaryNumber;
+            $filePath = rtrim($this->outgoingDir, '/') . '/' . $filename;
+            if (file_put_contents($filePath, $adminMessage) !== false) {
+                $this->log("Flood summary alert for {$targetNumber} queued for administrator {$this->summaryNumber}.");
+            }
         } else {
-            $this->log("Failed to write flood summary message to spool at {$filePath}.");
+            $this->log("No valid summary number configured. Administrator alert skipped.");
         }
+
+        // 2. Send to recipient
+        if (strlen($targetNumber) === 10) {
+            $filename = uniqid() . $targetNumber;
+            $filePath = rtrim($this->outgoingDir, '/') . '/' . $filename;
+            if (file_put_contents($filePath, $recipientMessage) !== false) {
+                $this->log("Flood summary alert queued for flooded recipient {$targetNumber}.");
+            }
+        }
+    }
+
+    /**
+     * Deletes all files in the outgoing spool directory for a specific number.
+     * @param string $number
+     * @return int The number of files deleted.
+     */
+    private function clearSpoolForNumber(string $number): int
+    {
+        $dir = rtrim($this->outgoingDir, '/') . '/';
+        $files = @scandir($dir);
+        if ($files === false) return 0;
+
+        $count = 0;
+        foreach ($files as $file) {
+            if ($file === '.' || $file === '..') continue;
+            if (is_file($dir . $file) && substr($file, -10) === $number) {
+                if (@unlink($dir . $file)) {
+                    $count++;
+                }
+            }
+        }
+        return $count;
     }
 }

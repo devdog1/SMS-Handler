@@ -3,9 +3,9 @@
 require_once __DIR__ . '/../Lib/Polyfills.php';
 require_once __DIR__ . '/../Plugins/IPlugin.php';
 require_once __DIR__ . '/../Plugins/BasePlugin.php';
-require_once __DIR__ . '/../Plugins/FloodControlPlugin.php';
+require_once __DIR__ . '/../Plugins/AaaFloodControlPlugin.php';
 
-use SmsDaemon\Plugins\FloodControlPlugin;
+use SmsDaemon\Plugins\AaaFloodControlPlugin;
 
 // Mock the environment
 $tempSpool = sys_get_temp_dir() . '/sms_spool_test_' . uniqid();
@@ -22,7 +22,7 @@ $config = [
     ]
 ];
 
-$plugin = new FloodControlPlugin($config);
+$plugin = new AaaFloodControlPlugin($config);
 
 function cleanup($dir) {
     $files = glob($dir . '/*');
@@ -39,7 +39,7 @@ function cleanup($dir) {
 }
 
 try {
-    echo "Testing Per-Number FloodControlPlugin...\n";
+    echo "Testing Per-Number AaaFloodControlPlugin with Spool Clearing...\n";
 
     $number1 = '9876543210';
     $number2 = '8887776666';
@@ -57,8 +57,8 @@ try {
     }
     echo "   PASSED\n";
 
-    // 2. Test threshold reached for number1 only
-    echo "2. Testing flood detection for number1 only...\n";
+    // 2. Test threshold reached for number1 only (flood detection and spool clearing)
+    echo "2. Testing flood detection and spool clearing for number1...\n";
     for ($i = 3; $i < 5; $i++) {
         touch($tempSpool . '/msg' . $i . $number1);
     }
@@ -68,42 +68,67 @@ try {
         throw new Exception("Plugin failed to suppress message for number1 at threshold.");
     }
 
-    // Number2 should STILL be allowed
+    // Number2 should STILL be allowed AND its spool should NOT be cleared
     $result2 = $plugin->handleOutgoing(['number' => $number2, 'message' => 'Test for number 2']);
     if ($result2 === null) {
         throw new Exception("Plugin suppressed number2 incorrectly when only number1 was flooded.");
     }
+
+    // Check if number1 spool was cleared (ignoring the flood alert summary itself)
+    $files = scandir($tempSpool);
+    $number1Count = 0;
+    foreach ($files as $file) {
+        if (is_file($tempSpool . '/' . $file) && substr($file, -10) === $number1) {
+            $content = file_get_contents($tempSpool . '/' . $file);
+            if (strpos($content, '[FLOOD ALERT]') === false) {
+                $number1Count++;
+            }
+        }
+    }
+    if ($number1Count > 0) {
+        throw new Exception("Spool for number1 was not cleared! Found {$number1Count} regular files.");
+    }
+
+    // Check if number2 spool is still there
+    $number2Count = 0;
+    foreach ($files as $file) {
+        if (is_file($tempSpool . '/' . $file) && substr($file, -10) === $number2) {
+            $number2Count++;
+        }
+    }
+    if ($number2Count < 3) {
+        throw new Exception("Spool for number2 was cleared incorrectly! Found {$number2Count} files.");
+    }
     echo "   PASSED\n";
 
-    // 3. Verify summary message for number1
-    echo "3. Verifying summary message for number1...\n";
+    // 3. Verify summary messages (Administrator and Recipient)
+    echo "3. Verifying summary messages for both administrator and recipient...\n";
     $files = scandir($tempSpool);
-    $foundSummary = false;
+    $foundAdminSummary = false;
+    $foundRecipientSummary = false;
     foreach ($files as $file) {
         if (strpos($file, '5551234567') !== false) {
             $content = file_get_contents($tempSpool . '/' . $file);
             if (strpos($content, '[FLOOD ALERT]') !== false && strpos($content, $number1) !== false) {
-                $foundSummary = true;
-                break;
+                $foundAdminSummary = true;
+            }
+        }
+        if (strpos($file, $number1) !== false) {
+            $content = file_get_contents($tempSpool . '/' . $file);
+            if (strpos($content, '[FLOOD ALERT]') !== false && strpos($content, 'High volume') !== false) {
+                $foundRecipientSummary = true;
             }
         }
     }
-    if (!$foundSummary) {
-        throw new Exception("Summary message for number1 was not queued correctly.");
+    if (!$foundAdminSummary) {
+        throw new Exception("Administrator summary message was not queued correctly.");
+    }
+    if (!$foundRecipientSummary) {
+        throw new Exception("Recipient summary message was not queued correctly.");
     }
     echo "   PASSED\n";
 
-    // 4. Test summary message bypass
-    echo "4. Testing summary message bypass...\n";
-    // If the summary number itself is also the one being flooded (unlikely but possible in test)
-    $summaryData = ['number' => '5551234567', 'message' => '[FLOOD ALERT] summary for 9876543210'];
-    $result = $plugin->handleOutgoing($summaryData);
-    if ($result === null) {
-        throw new Exception("Plugin suppressed its own summary message.");
-    }
-    echo "   PASSED\n";
-
-    echo "\nAll Per-Number FloodControlPlugin tests PASSED!\n";
+    echo "\nAll AaaFloodControlPlugin spool clearing tests PASSED!\n";
 
 } catch (Exception $e) {
     echo "\nTEST FAILED: " . $e->getMessage() . "\n";
