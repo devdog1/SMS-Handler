@@ -20,7 +20,7 @@ class BulkAckPlugin extends BasePlugin
         $sender = $message['sender'];
 
         // Use a case-insensitive regex for the trigger words.
-        if (preg_match("/^(fuck|go|ok)/i", $text)) {
+        if (preg_match("/^(fuck|ok)/i", $text)) {
             $this->log("Handling Bulk Ack message from {$sender}.");
 
             $ackTime = 240; // Ack duration in minutes (4 hours)
