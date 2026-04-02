@@ -71,6 +71,12 @@ class BbbGlobalPausePlugin extends BasePlugin
                 return "Invalid duration. Please specify a number of minutes greater than 0.";
             }
 
+            // Cap duration at 3 hours (180 minutes)
+            if ($duration > 180) {
+                $duration = 180;
+                $this->log("Global pause duration capped at 180 minutes.");
+            }
+
             if ($this->dbConnect()) {
                 $this->dbh->query("DELETE FROM global_pause");
                 $query = "INSERT INTO global_pause (startTime, duration, pausedBy) VALUES (NOW(), ?, ?)";
