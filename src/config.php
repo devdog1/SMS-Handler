@@ -47,5 +47,9 @@ return [
             // If this list is not empty, only messages to/from these area codes will be processed.
             // e.g., '204', '431', '584',
         ],
+        'flood_control' => [
+            'threshold' => 50,
+            'summary_number' => '', // Set a 10-digit number to receive alerts
+        ],
     ],
 ];
