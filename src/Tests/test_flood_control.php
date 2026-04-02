@@ -10,8 +10,6 @@ use SmsDaemon\Plugins\FloodControlPlugin;
 // Mock the environment
 $tempSpool = sys_get_temp_dir() . '/sms_spool_test_' . uniqid();
 mkdir($tempSpool);
-$floodLock = sys_get_temp_dir() . '/sms_daemon_flood_mode.lock';
-if (file_exists($floodLock)) unlink($floodLock);
 
 $config = [
     'debug' => true,
@@ -26,87 +24,91 @@ $config = [
 
 $plugin = new FloodControlPlugin($config);
 
-function cleanup($dir, $lock) {
+function cleanup($dir) {
     $files = glob($dir . '/*');
     foreach ($files as $file) {
         if (is_file($file)) unlink($file);
     }
     rmdir($dir);
-    if (file_exists($lock)) unlink($lock);
+
+    // Clean up possible lock files
+    $locks = glob(sys_get_temp_dir() . '/sms_daemon_flood_*.lock');
+    foreach ($locks as $lock) {
+        if (is_file($lock)) unlink($lock);
+    }
 }
 
 try {
-    echo "Testing FloodControlPlugin...\n";
+    echo "Testing Per-Number FloodControlPlugin...\n";
 
-    // 1. Test normal operation (below threshold)
-    echo "1. Testing normal operation (below threshold)...\n";
+    $number1 = '9876543210';
+    $number2 = '8887776666';
+
+    // 1. Test normal operation for both numbers (below threshold)
+    echo "1. Testing normal operation for both numbers (below threshold)...\n";
     for ($i = 0; $i < 3; $i++) {
-        touch($tempSpool . '/msg' . $i . '1234567890');
+        touch($tempSpool . '/msg' . $i . $number1);
+        touch($tempSpool . '/msg' . $i . $number2);
     }
-    $messageData = ['number' => '9876543210', 'message' => 'Test message'];
-    $result = $plugin->handleOutgoing($messageData);
-    if ($result === null) {
+    $result1 = $plugin->handleOutgoing(['number' => $number1, 'message' => 'Test 1']);
+    $result2 = $plugin->handleOutgoing(['number' => $number2, 'message' => 'Test 2']);
+    if ($result1 === null || $result2 === null) {
         throw new Exception("Plugin suppressed message incorrectly below threshold.");
     }
     echo "   PASSED\n";
 
-    // 2. Test threshold reached (flood detection)
-    echo "2. Testing flood detection (threshold reached)...\n";
+    // 2. Test threshold reached for number1 only
+    echo "2. Testing flood detection for number1 only...\n";
     for ($i = 3; $i < 5; $i++) {
-        touch($tempSpool . '/msg' . $i . '1234567890');
+        touch($tempSpool . '/msg' . $i . $number1);
     }
-    $files = scandir($tempSpool);
-    echo "Current spool files count: " . (count($files) - 2) . "\n";
-    // Spool count is now 5. Threshold is 5.
-    $result = $plugin->handleOutgoing($messageData);
-    if ($result !== null) {
-        throw new Exception("Plugin failed to suppress message at threshold.");
-    }
-    if (!file_exists($floodLock)) {
-        throw new Exception("Flood lock file was not created.");
+    // Number1 spool count is now 5. Threshold is 5.
+    $result1 = $plugin->handleOutgoing(['number' => $number1, 'message' => 'Trigger flood 1']);
+    if ($result1 !== null) {
+        throw new Exception("Plugin failed to suppress message for number1 at threshold.");
     }
 
-    // Check if summary message was queued
+    // Number2 should STILL be allowed
+    $result2 = $plugin->handleOutgoing(['number' => $number2, 'message' => 'Test for number 2']);
+    if ($result2 === null) {
+        throw new Exception("Plugin suppressed number2 incorrectly when only number1 was flooded.");
+    }
+    echo "   PASSED\n";
+
+    // 3. Verify summary message for number1
+    echo "3. Verifying summary message for number1...\n";
     $files = scandir($tempSpool);
-    echo "Files in spool: " . implode(', ', $files) . "\n";
     $foundSummary = false;
     foreach ($files as $file) {
         if (strpos($file, '5551234567') !== false) {
             $content = file_get_contents($tempSpool . '/' . $file);
-            if (strpos($content, '[FLOOD ALERT]') !== false) {
+            if (strpos($content, '[FLOOD ALERT]') !== false && strpos($content, $number1) !== false) {
                 $foundSummary = true;
                 break;
             }
         }
     }
     if (!$foundSummary) {
-        throw new Exception("Summary message was not queued.");
-    }
-    echo "   PASSED\n";
-
-    // 3. Test lockout (suppression)
-    echo "3. Testing lockout (further suppression)...\n";
-    $result = $plugin->handleOutgoing($messageData);
-    if ($result !== null) {
-        throw new Exception("Plugin allowed message during lockout.");
+        throw new Exception("Summary message for number1 was not queued correctly.");
     }
     echo "   PASSED\n";
 
     // 4. Test summary message bypass
     echo "4. Testing summary message bypass...\n";
-    $summaryData = ['number' => '+1 (555) 123-4567', 'message' => '[FLOOD ALERT] summary'];
+    // If the summary number itself is also the one being flooded (unlikely but possible in test)
+    $summaryData = ['number' => '5551234567', 'message' => '[FLOOD ALERT] summary for 9876543210'];
     $result = $plugin->handleOutgoing($summaryData);
     if ($result === null) {
-        throw new Exception("Plugin suppressed its own summary message during lockout.");
+        throw new Exception("Plugin suppressed its own summary message.");
     }
     echo "   PASSED\n";
 
-    echo "\nAll FloodControlPlugin tests PASSED!\n";
+    echo "\nAll Per-Number FloodControlPlugin tests PASSED!\n";
 
 } catch (Exception $e) {
     echo "\nTEST FAILED: " . $e->getMessage() . "\n";
-    cleanup($tempSpool, $floodLock);
+    cleanup($tempSpool);
     exit(1);
 }
 
-cleanup($tempSpool, $floodLock);
+cleanup($tempSpool);

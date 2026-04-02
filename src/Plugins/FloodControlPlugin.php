@@ -45,37 +45,37 @@ class FloodControlPlugin extends BasePlugin
             return $messageData;
         }
 
-        $floodFlagFile = sys_get_temp_dir() . '/sms_daemon_flood_mode.lock';
+        $targetNumber = $this->sanitizePhoneNumber($messageData['number']);
+        $floodFlagFile = sys_get_temp_dir() . '/sms_daemon_flood_' . $targetNumber . '.lock';
 
-        // 1. Check if we are currently in a lockout period
+        // 1. Check if we are currently in a lockout period for this number
         if (file_exists($floodFlagFile)) {
             $mtime = @filemtime($floodFlagFile);
             if (time() - $mtime < $this->lockoutTime) {
                 // Allow the summary message itself to bypass the lockout
-                $recipient = $this->sanitizePhoneNumber($messageData['number']);
-                if ($recipient === $this->summaryNumber && strpos($messageData['message'], '[FLOOD ALERT]') !== false) {
+                if ($targetNumber === $this->summaryNumber && strpos($messageData['message'], '[FLOOD ALERT]') !== false) {
                     $this->log("Allowing flood summary message to {$this->summaryNumber}.");
                     return $messageData;
                 }
 
-                $this->log("Flood lockout active. Suppressing message to {$messageData['number']}.");
+                $this->log("Flood lockout active for {$targetNumber}. Suppressing message.");
                 return null;
             } else {
-                $this->log("Flood lockout expired.");
+                $this->log("Flood lockout expired for {$targetNumber}.");
                 @unlink($floodFlagFile);
             }
         }
 
-        // 2. Check the current spool count
-        $count = $this->getSpoolCount();
+        // 2. Check the current spool count for this specific number
+        $count = $this->getSpoolCountForNumber($targetNumber);
         if ($count >= $this->threshold) {
-            $this->log("Spool flood detected: {$count} messages (threshold: {$this->threshold}). Entering lockout.");
+            $this->log("Spool flood detected for {$targetNumber}: {$count} messages (threshold: {$this->threshold}). Entering lockout.");
 
             // Create the lockout flag file
             touch($floodFlagFile);
 
             // Send a summary alert message
-            $this->sendSummary($count);
+            $this->sendSummary($targetNumber, $count);
 
             // Suppress the current message that triggered the detection
             return null;
@@ -85,10 +85,11 @@ class FloodControlPlugin extends BasePlugin
     }
 
     /**
-     * Counts the number of files in the outgoing spool directory.
+     * Counts the number of files in the outgoing spool directory for a specific number.
+     * @param string $number
      * @return int
      */
-    private function getSpoolCount(): int
+    private function getSpoolCountForNumber(string $number): int
     {
         $dir = rtrim($this->outgoingDir, '/') . '/';
         $files = @scandir($dir);
@@ -102,7 +103,8 @@ class FloodControlPlugin extends BasePlugin
             if ($file === '.' || $file === '..') {
                 continue;
             }
-            if (is_file($dir . $file)) {
+            // The daemon uses the last 10 characters of the filename for the phone number.
+            if (is_file($dir . $file) && substr($file, -10) === $number) {
                 $count++;
             }
         }
@@ -111,11 +113,12 @@ class FloodControlPlugin extends BasePlugin
 
     /**
      * Queues a summary message to be sent via the daemon.
-     * @param int $count
+     * @param string $targetNumber The number being flooded.
+     * @param int $count The current count of pending messages for that number.
      */
-    private function sendSummary(int $count): void
+    private function sendSummary(string $targetNumber, int $count): void
     {
-        $message = "[FLOOD ALERT] There are currently {$count} pending SMS messages in the spool. Outgoing messages are being suppressed for " . ($this->lockoutTime / 60) . " minutes.";
+        $message = "[FLOOD ALERT] There are currently {$count} pending SMS messages in the spool for number {$targetNumber}. Outgoing messages to this number are being suppressed for " . ($this->lockoutTime / 60) . " minutes.";
 
         if (strlen($this->summaryNumber) !== 10) {
             $this->log("Invalid summary number configured: {$this->summaryNumber}. Cannot send summary.");
@@ -127,7 +130,7 @@ class FloodControlPlugin extends BasePlugin
         $filePath = rtrim($this->outgoingDir, '/') . '/' . $filename;
 
         if (file_put_contents($filePath, $message) !== false) {
-            $this->log("Flood summary alert queued for {$this->summaryNumber} (File: {$filename}).");
+            $this->log("Flood summary alert for {$targetNumber} queued for {$this->summaryNumber} (File: {$filename}).");
         } else {
             $this->log("Failed to write flood summary message to spool at {$filePath}.");
         }
