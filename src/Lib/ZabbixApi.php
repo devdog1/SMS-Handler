@@ -119,6 +119,43 @@ class ZabbixApi
     }
 
     /**
+     * Retrieves the trigger ID associated with a specific event ID.
+     * @param int $eventId
+     * @return int|null The trigger ID or null if not found.
+     */
+    public function getTriggerIdByEventId(int $eventId): ?int
+    {
+        $events = $this->request('event.get', [
+            'eventids' => $eventId,
+            'select_related_object' => ['triggerid'],
+        ]);
+
+        if ($events && !empty($events)) {
+            $event = $events[0];
+            if (isset($event['relatedObject']) && isset($event['relatedObject']['triggerid'])) {
+                return (int)$event['relatedObject']['triggerid'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Disables a specific trigger.
+     * @param int $triggerId
+     * @return bool True on success, false on failure.
+     */
+    public function disableTrigger(int $triggerId): bool
+    {
+        $result = $this->request('trigger.update', [
+            'triggerid' => $triggerId,
+            'status' => 1, // 1 means Disabled
+        ]);
+
+        return !empty($result);
+    }
+
+    /**
      * Sanitizes a phone number by removing non-numeric characters.
      * Keeps only the last 10 digits if possible, or the whole number if it's shorter.
      * @param string $number
