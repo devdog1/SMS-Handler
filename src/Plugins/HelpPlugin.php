@@ -84,10 +84,4 @@ class HelpPlugin extends BasePlugin
         return $numbers;
     }
 
-    private function sanitizePhoneNumber(string $number): string
-    {
-        $clean = preg_replace('/\D/', '', $number);
-        if (strlen($clean) > 10) return substr($clean, -10);
-        return $clean;
-    }
 }

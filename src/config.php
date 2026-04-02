@@ -51,5 +51,11 @@ return [
             'threshold' => 50,
             'summary_number' => '', // Set a 10-digit number to receive alerts
         ],
+        'global_pause' => [
+            'authorized_group_id' => null, // Set to Zabbix User Group ID for authorization
+        ],
+        'spool_clear' => [
+            'authorized_group_id' => null, // Set to Zabbix User Group ID for authorization
+        ],
     ],
 ];

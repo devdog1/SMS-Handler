@@ -107,12 +107,3 @@ class ZabbixTriggerDisablePlugin extends BasePlugin
     /**
      * Sanitizes a phone number to match the format from ZabbixApi.
      */
-    private function sanitizePhoneNumber(string $number): string
-    {
-        $clean = preg_replace('/\D/', '', $number);
-        if (strlen($clean) > 10) {
-            return substr($clean, -10);
-        }
-        return $clean;
-    }
-}

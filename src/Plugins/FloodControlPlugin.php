@@ -135,18 +135,4 @@ class FloodControlPlugin extends BasePlugin
             $this->log("Failed to write flood summary message to spool at {$filePath}.");
         }
     }
-
-    /**
-     * Sanitizes a phone number to exactly 10 digits.
-     * @param string $number
-     * @return string
-     */
-    private function sanitizePhoneNumber(string $number): string
-    {
-        $clean = preg_replace('/\D/', '', $number);
-        if (strlen($clean) > 10) {
-            return substr($clean, -10);
-        }
-        return $clean;
-    }
 }
