@@ -84,12 +84,52 @@ class Modem
     }
 
     /**
-     * Sends an SMS message.
+     * Sends an SMS message. If the message exceeds 160 characters, it is split
+     * into multiple parts and sent as separate SMS messages.
+     *
+     * @param string $number The recipient's phone number.
+     * @param string $message The message text.
+     * @return bool True only if ALL message parts were sent successfully.
+     */
+    public function sendMessage(string $number, string $message): bool
+    {
+        $maxLen = 160;
+        if (mb_strlen($message) <= $maxLen) {
+            return $this->sendRawMessage($number, $message);
+        }
+
+        $this->log("Message too long (" . mb_strlen($message) . " chars). Splitting into 160-char parts.");
+        $chunks = [];
+        if (function_exists('mb_str_split')) {
+            $chunks = mb_str_split($message, $maxLen);
+        } else {
+            $strlen = mb_strlen($message);
+            for ($i = 0; $i < $strlen; $i += $maxLen) {
+                $chunks[] = mb_substr($message, $i, $maxLen);
+            }
+        }
+
+        $allSuccessful = true;
+        foreach ($chunks as $idx => $chunk) {
+            $part = $idx + 1;
+            $this->log("Sending part $part of " . count($chunks));
+            if (!$this->sendRawMessage($number, $chunk)) {
+                $this->log("Failed to send part $part of message.");
+                $allSuccessful = false;
+            }
+        }
+
+        return $allSuccessful;
+    }
+
+    /**
+     * Sends a single SMS message part without splitting.
+     *
      * @param string $number The recipient's phone number.
      * @param string $message The message text.
      * @return bool True on success, false on failure.
      */
-    public function sendMessage(string $number, string $message): bool
+    private function sendRawMessage(string $number, string $message): bool
     {
         $this->log("Attempting to send message to {$number}");
         $this->socket->write("AT+CMGS=\"$number\"\r");
