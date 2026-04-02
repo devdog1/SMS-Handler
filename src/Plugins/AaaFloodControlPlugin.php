@@ -3,12 +3,12 @@
 namespace SmsDaemon\Plugins;
 
 /**
- * Class FloodControlPlugin
+ * Class AaaFloodControlPlugin
  *
  * Monitors the outgoing spool directory. If the number of pending messages
  * exceeds a threshold, it suppresses outgoing messages and sends a summary alert.
  */
-class FloodControlPlugin extends BasePlugin
+class AaaFloodControlPlugin extends BasePlugin
 {
     private $threshold;
     private $summaryNumber;

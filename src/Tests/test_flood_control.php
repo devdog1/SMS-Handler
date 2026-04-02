@@ -3,9 +3,9 @@
 require_once __DIR__ . '/../Lib/Polyfills.php';
 require_once __DIR__ . '/../Plugins/IPlugin.php';
 require_once __DIR__ . '/../Plugins/BasePlugin.php';
-require_once __DIR__ . '/../Plugins/FloodControlPlugin.php';
+require_once __DIR__ . '/../Plugins/AaaFloodControlPlugin.php';
 
-use SmsDaemon\Plugins\FloodControlPlugin;
+use SmsDaemon\Plugins\AaaFloodControlPlugin;
 
 // Mock the environment
 $tempSpool = sys_get_temp_dir() . '/sms_spool_test_' . uniqid();
@@ -22,7 +22,7 @@ $config = [
     ]
 ];
 
-$plugin = new FloodControlPlugin($config);
+$plugin = new AaaFloodControlPlugin($config);
 
 function cleanup($dir) {
     $files = glob($dir . '/*');
@@ -39,7 +39,7 @@ function cleanup($dir) {
 }
 
 try {
-    echo "Testing Per-Number FloodControlPlugin...\n";
+    echo "Testing Per-Number AaaFloodControlPlugin...\n";
 
     $number1 = '9876543210';
     $number2 = '8887776666';
@@ -103,7 +103,7 @@ try {
     }
     echo "   PASSED\n";
 
-    echo "\nAll Per-Number FloodControlPlugin tests PASSED!\n";
+    echo "\nAll Per-Number AaaFloodControlPlugin tests PASSED!\n";
 
 } catch (Exception $e) {
     echo "\nTEST FAILED: " . $e->getMessage() . "\n";
