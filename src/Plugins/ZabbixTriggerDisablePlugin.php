@@ -103,7 +103,4 @@ class ZabbixTriggerDisablePlugin extends BasePlugin
 
         return $numbers;
     }
-
-    /**
-     * Sanitizes a phone number to match the format from ZabbixApi.
-     */
+}
