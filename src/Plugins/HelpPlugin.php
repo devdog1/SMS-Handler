@@ -24,7 +24,7 @@ class HelpPlugin extends BasePlugin
         $zabbixConfig = $config['zabbix'] ?? [];
         $this->zabbixApi = new ZabbixApi(
             $zabbixConfig['url'] ?? '',
-            $zabbixConfig['token'] ?? '',
+            $zabbixConfig['user'] ?? '', $zabbixConfig['password'] ?? '',
             $this->debug
         );
         $this->authCacheDuration = $zabbixConfig['cache_duration'] ?? 3600;

@@ -33,7 +33,8 @@ return [
 
     'zabbix' => [
         'url' => 'http://zabbix/api_jsonrpc.php',
-        'token' => 'YOUR_ZABBIX_API_TOKEN',
+        'user' => 'Admin',
+        'password' => 'zabbix',
         'cache_duration' => 3600, // 1 hour
     ],
 
