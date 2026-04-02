@@ -26,10 +26,16 @@ class NumberPausePlugin extends BasePlugin
 
         // 1. Check for "stop" or "stop <minutes>"
         if (preg_match('/^stop(\s+(\d+))?$/', $text, $matches)) {
-            $duration = isset($matches[2]) ? (int)$matches[2] : 525600; // Default to 1 year
+            $duration = isset($matches[2]) ? (int)$matches[2] : 30; // Default to 30 mins
 
             if ($duration <= 0) {
                 return "Invalid duration. Please specify a number of minutes greater than 0.";
+            }
+
+            // Cap at 8 hours (480 minutes)
+            if ($duration > 480) {
+                $duration = 480;
+                $this->log("Number pause duration capped at 480 minutes.");
             }
 
             if ($this->dbConnect()) {
@@ -44,8 +50,7 @@ class NumberPausePlugin extends BasePlugin
 
                 if ($stmt->execute()) {
                     $this->log("Outgoing messages paused for {$sender} for {$duration} minutes.");
-                    $durationText = ($duration >= 525600) ? "indefinitely" : "for {$duration} minutes";
-                    $response = "Alerts have been paused {$durationText} for this number. Reply 'go' to resume.";
+                    $response = "Alerts have been paused for {$duration} minutes for this number. Reply 'go' to resume.";
                 } else {
                     $this->log("Failed to pause outgoing messages for {$sender}. Error: " . $stmt->error);
                     $response = "Error: Could not pause alerts for your number.";
