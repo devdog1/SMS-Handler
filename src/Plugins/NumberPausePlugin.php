@@ -7,7 +7,8 @@ namespace SmsDaemon\Plugins;
  *
  * Allows users to pause outgoing SMS messages for their own phone number.
  * Commands:
- * - "stop": Pauses outgoing messages for the sender's number.
+ * - "stop": Pauses outgoing messages for the sender's number (indefinitely/1 year).
+ * - "stop <minutes>": Pauses outgoing messages for the specified number of minutes.
  * - "go": Resumes outgoing messages for the sender's number.
  */
 class NumberPausePlugin extends BasePlugin
@@ -23,21 +24,28 @@ class NumberPausePlugin extends BasePlugin
         $text = strtolower(trim($message['text']));
         $sender = $message['sender'];
 
-        // 1. Check for "stop"
-        if ($text === 'stop') {
+        // 1. Check for "stop" or "stop <minutes>"
+        if (preg_match('/^stop(\s+(\d+))?$/', $text, $matches)) {
+            $duration = isset($matches[2]) ? (int)$matches[2] : 525600; // Default to 1 year
+
+            if ($duration <= 0) {
+                return "Invalid duration. Please specify a number of minutes greater than 0.";
+            }
+
             if ($this->dbConnect()) {
                 $deleteQuery = "DELETE FROM number_pause WHERE phoneNumber = ?";
                 $deleteStmt = $this->dbh->prepare($deleteQuery);
                 $deleteStmt->bind_param('s', $sender);
                 $deleteStmt->execute();
 
-                $query = "INSERT INTO number_pause (phoneNumber, startTime, isPaused) VALUES (?, NOW(), 1)";
+                $query = "INSERT INTO number_pause (phoneNumber, startTime, duration, isPaused) VALUES (?, NOW(), ?, 1)";
                 $stmt = $this->dbh->prepare($query);
-                $stmt->bind_param('s', $sender);
+                $stmt->bind_param('si', $sender, $duration);
 
                 if ($stmt->execute()) {
-                    $this->log("Outgoing messages paused for {$sender}.");
-                    $response = "Alerts have been paused for this number. Reply 'go' to resume.";
+                    $this->log("Outgoing messages paused for {$sender} for {$duration} minutes.");
+                    $durationText = ($duration >= 525600) ? "indefinitely" : "for {$duration} minutes";
+                    $response = "Alerts have been paused {$durationText} for this number. Reply 'go' to resume.";
                 } else {
                     $this->log("Failed to pause outgoing messages for {$sender}. Error: " . $stmt->error);
                     $response = "Error: Could not pause alerts for your number.";
@@ -97,7 +105,7 @@ class NumberPausePlugin extends BasePlugin
     private function isPaused(string $phoneNumber): bool
     {
         if ($this->dbConnect()) {
-            $query = "SELECT isPaused FROM number_pause WHERE phoneNumber = ? LIMIT 1";
+            $query = "SELECT isPaused FROM number_pause WHERE phoneNumber = ? AND NOW() <= DATE_ADD(startTime, INTERVAL duration MINUTE) LIMIT 1";
             $stmt = $this->dbh->prepare($query);
             $stmt->bind_param('s', $phoneNumber);
 

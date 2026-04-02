@@ -42,6 +42,7 @@ $query = "CREATE TABLE IF NOT EXISTS number_pause (
     id INT AUTO_INCREMENT PRIMARY KEY,
     phoneNumber VARCHAR(20) NOT NULL,
     startTime DATETIME NOT NULL,
+    duration INT NOT NULL DEFAULT 525600, -- Default to 1 year in minutes
     isPaused TINYINT(1) NOT NULL DEFAULT 0,
     INDEX (phoneNumber)
 )";
