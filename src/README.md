@@ -52,9 +52,23 @@ return [
             '204',
             '431',
         ],
+        'oncall_groups' => [
+            10 => 20, // Map On-Call group (ID 10) to Pool group (ID 20)
+        ],
     ],
 ];
 ```
+
+## Special Configuration for Plugins
+
+### Global Pause
+The `BbbGlobalPausePlugin` requires a dedicated database table. To initialize it, run:
+```bash
+php init_db.php
+```
+
+### On-Call Manager
+The `OnCallManagerPlugin` requires a mapping in the `oncall_groups` config key. This mapping pairs an **On-Call Group ID** (the group that receives alerts) with a **Pool Group ID** (the group containing all users eligible for that rotation). A user can only switch on-call status for a rotation if they are already a member of its corresponding pool group.
 
 ## Production Setup and Usage
 
@@ -140,12 +154,16 @@ The daemon comes with several pre-built plugins. Incoming messages are checked a
 | ----------------------- | ------------------ | ------------------------------------------------------------------------------------------------------- |
 | `AckCheckPlugin`        | (n/a)              | Checks if an alert has an active acknowledgement before sending; prevents duplicate notifications.      |
 | `AreaCodeWhitelistPlugin` | (n/a)              | If configured, only allows messages from/to area codes in the `plugins.allowed_area_codes` list.      |
+| `BbbGlobalPausePlugin`  | `pause <min>`, `unpause`, `pause status` | Temporarily pauses all outgoing SMS messages for authorized users. Capped at 180 minutes. |
 | `BlockNumberPlugin`     | (n/a)              | Blocks incoming/outgoing messages from/to numbers in the `plugins.block_numbers` config list.           |
 | `ZabbixAckPlugin`       | `120 E:54321`      | Acknowledges a Zabbix event. The first number is the duration in minutes.                               |
 | `BulkAckPlugin`         | `ok`, `go`, `fuck` | Performs a bulk acknowledgement of all recent events for the sender.                                    |
+| `HelpPlugin`            | `help`             | Lists all available commands and their descriptions for authorized users.                               |
 | `HistoryPlugin`         | `history`          | Responds with the last 5 messages that were sent to the requesting user.                                |
+| `OnCallManagerPlugin`   | `oncall`, `oncall <group>` | Lists on-call members or switches on-call status for a group to the sender (requires pool membership). |
 | `SignaturePlugin`       | (n/a)              | Appends a signature to all outgoing messages.                                                           |
 | `SmsLoggerPlugin`       | (n/a)              | Logs all sent messages to the `smsLog` database table.                                                  |
+| `ZabbixTriggerDisablePlugin` | `disable E:<id>` | Disables the Zabbix trigger associated with a specific event ID.                                     |
 | `ZzzDefaultReplyPlugin` | (any other text)   | A fallback that replies with a "bad message" response if no other plugin handles the SMS.               |
 
 ## Extending the Daemon (Creating a New Plugin)
