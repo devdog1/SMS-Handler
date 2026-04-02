@@ -31,6 +31,12 @@ return [
         'send_batch_size' => 10, // max messages to send per cycle
     ],
 
+    'zabbix' => [
+        'url' => 'http://zabbix/api_jsonrpc.php',
+        'token' => 'YOUR_ZABBIX_API_TOKEN',
+        'cache_duration' => 3600, // 1 hour
+    ],
+
     'plugins' => [
         'block_numbers' => [
             // Add 10-digit numbers here to block them from sending or receiving.

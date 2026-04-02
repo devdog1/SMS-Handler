@@ -33,7 +33,7 @@ class AreaCodeWhitelistPlugin extends BasePlugin
 
         if (!in_array($areaCode, $this->whitelist)) {
             $this->log("Blocking incoming message from non-whitelisted area code: {$areaCode} ({$sender})");
-            return null; // Block by returning null
+            return ''; // Block by returning an empty string to stop processing
         }
 
         // Number is allowed, let other plugins handle it.
