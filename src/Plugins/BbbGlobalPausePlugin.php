@@ -25,6 +25,7 @@ class BbbGlobalPausePlugin extends BasePlugin
     private $cacheFile;
     private $pauseCacheFile;
     private $cacheDuration;
+    private $authorizedGroupId;
 
     public function __construct(array $config)
     {
@@ -37,7 +38,10 @@ class BbbGlobalPausePlugin extends BasePlugin
             $this->debug
         );
         $this->cacheDuration = $zabbixConfig['cache_duration'] ?? 3600;
-        $this->cacheFile = sys_get_temp_dir() . '/sms_daemon_zabbix_numbers.json';
+        $this->authorizedGroupId = $config['plugins']['global_pause']['authorized_group_id'] ?? null;
+
+        $cacheSuffix = $this->authorizedGroupId ? "_{$this->authorizedGroupId}" : '';
+        $this->cacheFile = sys_get_temp_dir() . "/sms_daemon_zabbix_numbers{$cacheSuffix}.json";
         $this->pauseCacheFile = sys_get_temp_dir() . '/sms_daemon_global_pause.json';
     }
 
@@ -234,7 +238,7 @@ class BbbGlobalPausePlugin extends BasePlugin
             }
         }
 
-        $numbers = $this->zabbixApi->getAllUserMediaPhoneNumbers();
+        $numbers = $this->zabbixApi->getAllUserMediaPhoneNumbers($this->authorizedGroupId);
 
         if (!empty($numbers)) {
             file_put_contents($this->cacheFile, json_encode($numbers));
@@ -246,19 +250,5 @@ class BbbGlobalPausePlugin extends BasePlugin
         }
 
         return $numbers;
-    }
-
-    /**
-     * Sanitizes a phone number to match the format from ZabbixApi.
-     * @param string $number
-     * @return string
-     */
-    private function sanitizePhoneNumber(string $number): string
-    {
-        $clean = preg_replace('/\D/', '', $number);
-        if (strlen($clean) > 10) {
-            return substr($clean, -10);
-        }
-        return $clean;
     }
 }

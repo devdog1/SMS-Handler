@@ -80,6 +80,20 @@ abstract class BasePlugin implements IPlugin
     }
 
     /**
+     * Sanitizes a phone number to exactly 10 digits.
+     * @param string $number
+     * @return string
+     */
+    protected function sanitizePhoneNumber(string $number): string
+    {
+        $clean = preg_replace('/\D/', '', $number);
+        if (strlen($clean) > 10) {
+            return substr($clean, -10);
+        }
+        return $clean;
+    }
+
+    /**
      * The main handler method that must be implemented by concrete plugins.
      */
     abstract public function handleIncoming(array $message): ?string;

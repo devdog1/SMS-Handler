@@ -172,15 +172,22 @@ class ZabbixApi
     }
 
     /**
-     * Retrieves all phone numbers from user media.
+     * Retrieves all phone numbers from user media, optionally filtered by user group.
+     * @param int|null $userGroupId Optional user group ID to filter by.
      * @return array A list of unique phone numbers.
      */
-    public function getAllUserMediaPhoneNumbers(): array
+    public function getAllUserMediaPhoneNumbers(?int $userGroupId = null): array
     {
-        $users = $this->request('user.get', [
+        $params = [
             'output' => ['userid', 'username'],
             'selectMedias' => ['sendto'],
-        ]);
+        ];
+
+        if ($userGroupId !== null) {
+            $params['usrgrpids'] = $userGroupId;
+        }
+
+        $users = $this->request('user.get', $params);
 
         if (!is_array($users)) {
             return [];

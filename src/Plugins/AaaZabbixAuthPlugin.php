@@ -43,78 +43,8 @@ class AaaZabbixAuthPlugin extends BasePlugin
 
         if (!in_array($sender, $allowedNumbers)) {
             $this->log("Unauthorized message from {$message['sender']} (sanitized: {$sender}). Blocking.");
-            // Returning null here blocks the message from being processed further by other plugins.
-            // However, we need to be careful: if we return null, PluginManager.dispatchIncoming
-            // will continue to the next plugin unless we return a string or the plugin manager is modified.
-            // Wait, looking at PluginManager.php:
-            /*
-            foreach ($this->plugins as $plugin) {
-                $response = $plugin->handleIncoming($message);
-                if ($response !== null) {
-                    $this->log("Incoming message handled by " . get_class($plugin));
-                    return $response;
-                }
-            }
-            */
-            // If I return null, it DOES NOT block others from handling it.
-            // To block, I might need to return a special value or the PluginManager needs to change.
-            // Or I can return a string that indicates "Unauthorized".
-            // But the requirement says "only allow incoming sms messages that match a phone number listed as a users media".
-            // This sounds like a filter.
-
-            // If I want to STOP processing, I should probably return something.
-            // If I return a string, it will be sent as a reply.
-            // If I return null, it continues to next plugin.
-
-            // Maybe I should name it "AaaZabbixAuthPlugin" so it runs first.
-            // And if it's NOT authorized, it should return something to stop others,
-            // but maybe we don't want to reply to unauthorized numbers to avoid spam loops.
-
-            // Let's re-examine how to block in this architecture.
-            // BlockNumberPlugin also returns null.
-            /*
-            public function handleIncoming(array $message): ?string
-            {
-                if (in_array($message['sender'], $this->blockList)) {
-                    $this->log("Blocking incoming message from blocked number: {$message['sender']}");
-                    return null; // Silently drop the message
-                }
-                return null; // This plugin does not generate responses, so always return null for unblocked numbers.
-            }
-            */
-            // Actually, if BlockNumberPlugin returns null, the PluginManager CONTINUES to the next plugin!
-            // That means BlockNumberPlugin doesn't actually block unless it's the last one or it returns a string.
-            // Wait, let's look at `sms_daemon.php`:
-            /*
-            $response = $pluginManager->dispatchIncoming($msg);
-            if ($response) {
-                log_message("Plugin provided a response. Sending reply to {$msg['sender']}.");
-                $modem->sendMessage($msg['sender'], $response);
-            }
-            log_message("Deleting processed message ID {$msg['id']} from modem.");
-            $modem->deleteMessage($msg['id']);
-            */
-            // If dispatchIncoming returns null, nothing happens (no reply), and the message is deleted.
-            // But we want to PREVENT other plugins from handling it.
-
-            // If I want to block, I should probably return a non-null value that doesn't result in a reply.
-            // But `sms_daemon.php` sends the response if it's truthy.
-
-            // Re-reading `IPlugin.php` or `BasePlugin.php`... they don't have a "stop propagation" mechanism other than returning a string.
-
-            // If I return an empty string '', `sms_daemon.php` will see it as falsy and won't send a reply.
-            // `if ($response)` is false for empty string.
-            // AND `dispatchIncoming` will return it, so it will STOP the loop!
-
-            /* PluginManager.php:
-            if ($response !== null) {
-                $this->log("Incoming message handled by " . get_class($plugin));
-                return $response;
-            }
-            */
-            // YES! If I return '', it's !== null, so it stops the loop, AND `sms_daemon.php` won't send a reply.
-
-            return ''; // Stop processing, no reply.
+            // Returning an empty string stops the plugin chain but doesn't send a reply.
+            return '';
         }
 
         $this->log("Authorized message from {$message['sender']}.");
@@ -147,19 +77,5 @@ class AaaZabbixAuthPlugin extends BasePlugin
         }
 
         return $numbers;
-    }
-
-    /**
-     * Sanitizes a phone number to match the format from ZabbixApi.
-     * @param string $number
-     * @return string
-     */
-    private function sanitizePhoneNumber(string $number): string
-    {
-        $clean = preg_replace('/\D/', '', $number);
-        if (strlen($clean) > 10) {
-            return substr($clean, -10);
-        }
-        return $clean;
     }
 }
