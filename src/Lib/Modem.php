@@ -16,6 +16,8 @@ class Modem
     private $config;
     private $debug;
 
+    private const MAX_SMS_LENGTH = 160;
+
     public function __construct(array $config, bool $debug = false)
     {
         $this->config = $config;
@@ -93,21 +95,15 @@ class Modem
      */
     public function sendMessage(string $number, string $message): bool
     {
-        $maxLen = 160;
-        if (mb_strlen($message) <= $maxLen) {
+        $maxLen = self::MAX_SMS_LENGTH;
+        $messageLen = function_exists('mb_strlen') ? mb_strlen($message) : strlen($message);
+
+        if ($messageLen <= $maxLen) {
             return $this->sendRawMessage($number, $message);
         }
 
-        $this->log("Message too long (" . mb_strlen($message) . " chars). Splitting into 160-char parts.");
-        $chunks = [];
-        if (function_exists('mb_str_split')) {
-            $chunks = mb_str_split($message, $maxLen);
-        } else {
-            $strlen = mb_strlen($message);
-            for ($i = 0; $i < $strlen; $i += $maxLen) {
-                $chunks[] = mb_substr($message, $i, $maxLen);
-            }
-        }
+        $this->log("Message too long ($messageLen chars). Splitting into $maxLen-char parts.");
+        $chunks = $this->splitMessage($message, $maxLen);
 
         $allSuccessful = true;
         foreach ($chunks as $idx => $chunk) {
@@ -120,6 +116,29 @@ class Modem
         }
 
         return $allSuccessful;
+    }
+
+    /**
+     * Splits a message into chunks of a maximum length, safely handling multi-byte characters.
+     *
+     * @param string $message The message to split.
+     * @param int $maxLen The maximum length of each chunk.
+     * @return array The resulting message chunks.
+     */
+    protected function splitMessage(string $message, int $maxLen): array
+    {
+        if (function_exists('mb_str_split')) {
+            return mb_str_split($message, $maxLen);
+        }
+
+        $chunks = [];
+        $messageLen = function_exists('mb_strlen') ? mb_strlen($message) : strlen($message);
+        for ($i = 0; $i < $messageLen; $i += $maxLen) {
+            $chunks[] = function_exists('mb_substr')
+                ? mb_substr($message, $i, $maxLen)
+                : substr($message, $i, $maxLen);
+        }
+        return $chunks;
     }
 
     /**
