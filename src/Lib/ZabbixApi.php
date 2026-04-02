@@ -119,6 +119,141 @@ class ZabbixApi
     }
 
     /**
+     * Retrieves the trigger ID associated with a specific event ID.
+     * @param int $eventId
+     * @return int|null The trigger ID or null if not found.
+     */
+    public function getTriggerIdByEventId(int $eventId): ?int
+    {
+        $events = $this->request('event.get', [
+            'eventids' => $eventId,
+            'select_related_object' => ['triggerid'],
+        ]);
+
+        if ($events && !empty($events)) {
+            $event = $events[0];
+            if (isset($event['relatedObject']) && isset($event['relatedObject']['triggerid'])) {
+                return (int)$event['relatedObject']['triggerid'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Disables a specific trigger.
+     * @param int $triggerId
+     * @return bool True on success, false on failure.
+     */
+    public function disableTrigger(int $triggerId): bool
+    {
+        $result = $this->request('trigger.update', [
+            'triggerid' => $triggerId,
+            'status' => 1, // 1 means Disabled
+        ]);
+
+        return !empty($result);
+    }
+
+    /**
+     * Retrieves all user groups containing "on-call" in their name and their members.
+     * @return array
+     */
+    public function getOnCallGroups(): array
+    {
+        return $this->request('usergroup.get', [
+            'output' => ['usrgrpid', 'name'],
+            'selectUsers' => ['userid', 'username', 'name', 'surname'],
+            'search' => ['name' => '*on-call*'],
+            'searchWildcardsEnabled' => true,
+        ]) ?? [];
+    }
+
+    /**
+     * Retrieves the Zabbix user ID associated with a phone number.
+     * @param string $phoneNumber The 10-digit sanitized phone number.
+     * @return int|null The user ID or null if not found.
+     */
+    public function getUserIdByPhoneNumber(string $phoneNumber): ?int
+    {
+        $users = $this->request('user.get', [
+            'output' => ['userid'],
+            'selectMedias' => ['sendto'],
+        ]);
+
+        if (!$users) return null;
+
+        foreach ($users as $user) {
+            if (isset($user['medias']) && is_array($user['medias'])) {
+                foreach ($user['medias'] as $media) {
+                    $sendTo = $media['sendto'];
+                    if (is_array($sendTo)) {
+                        foreach ($sendTo as $entry) {
+                            if ($this->sanitizePhoneNumber($entry) === $phoneNumber) {
+                                return (int)$user['userid'];
+                            }
+                        }
+                    } else {
+                        if ($this->sanitizePhoneNumber($sendTo) === $phoneNumber) {
+                            return (int)$user['userid'];
+                        }
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Updates the members of a Zabbix user group.
+     * @param int $userGroupId
+     * @param array $userIds
+     * @return bool
+     */
+    public function setUserGroupMembers(int $userGroupId, array $userIds): bool
+    {
+        $result = $this->request('usergroup.update', [
+            'usrgrpid' => $userGroupId,
+            'userids' => $userIds,
+        ]);
+
+        return !empty($result);
+    }
+
+    /**
+     * Retrieves a single user group by ID, including its members.
+     * @param int $userGroupId
+     * @return array|null The group data or null if not found.
+     */
+    public function getUserGroupById(int $userGroupId): ?array
+    {
+        $groups = $this->request('usergroup.get', [
+            'usrgrpids' => $userGroupId,
+            'selectUsers' => ['userid', 'username', 'name', 'surname'],
+        ]);
+
+        return ($groups && !empty($groups)) ? $groups[0] : null;
+    }
+
+    /**
+     * Checks if a specific user is a member of a specific user group.
+     * @param int $userId
+     * @param int $userGroupId
+     * @return bool
+     */
+    public function isUserInGroup(int $userId, int $userGroupId): bool
+    {
+        $users = $this->request('user.get', [
+            'userids' => $userId,
+            'usrgrpids' => $userGroupId,
+            'output' => ['userid'],
+        ]);
+
+        return ($users && !empty($users));
+    }
+
+    /**
      * Sanitizes a phone number by removing non-numeric characters.
      * Keeps only the last 10 digits if possible, or the whole number if it's shorter.
      * @param string $number
