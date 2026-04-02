@@ -116,6 +116,8 @@ class Modem
         }
 
         $this->log("Send message timed out waiting for confirmation. Full response: " . trim($full_response));
+        // On timeout, send ESC character (0x1B) to cancel message if it's stuck.
+        $this->socket->write(chr(27));
         return false;
     }
 
@@ -186,8 +188,8 @@ class Modem
     private function executeCommand(string $command, string $expectedResponse): bool
     {
         $this->socket->write($command . "\r");
-        $response = $this->socket->read(500);
-        if (trim($response) !== trim($expectedResponse)) {
+        $response = $this->readUntilTerminator();
+        if (strpos($response, trim($expectedResponse)) === false) {
             $this->log("Command '{$command}' failed. Expected '{$expectedResponse}', got '" . trim($response) . "'");
             return false;
         }

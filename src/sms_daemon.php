@@ -149,7 +149,11 @@ while (true) {
                 }
 
                 log_message("Deleting processed message ID {$msg['id']} from modem.");
-                $modem->deleteMessage($msg['id']);
+                if (!$modem->deleteMessage($msg['id'])) {
+                    log_message("Failed to delete message ID {$msg['id']}. Disconnecting modem to reset state.");
+                    $modem->disconnect();
+                    break; // Exit the inner message processing loop to restart the main loop
+                }
             }
         } else {
             log_message("No new messages found.");
