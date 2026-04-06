@@ -75,11 +75,13 @@ class AaaFloodControlPlugin extends BasePlugin
             touch($floodFlagFile);
 
             // Remove existing pending messages for this number from the spool
-            $deletedCount = $this->clearSpoolForNumber($targetNumber);
+            $result = $this->clearSpoolForNumber($targetNumber);
+            $deletedCount = $result['count'];
+            $summary = $result['summary'];
             $this->log("Deleted {$deletedCount} pending messages from spool for {$targetNumber}.");
 
             // Send summary alert messages to both administrator and recipient
-            $this->sendSummary($targetNumber, $count);
+            $this->sendSummary($targetNumber, $count, $summary);
 
             // Suppress the current message that triggered the detection
             return null;
@@ -119,11 +121,12 @@ class AaaFloodControlPlugin extends BasePlugin
      * Queues summary messages to be sent to both the administrator and the flooded recipient.
      * @param string $targetNumber The number being flooded.
      * @param int $count The current count of pending messages for that number.
+     * @param string $summary A brief summary of suppressed message contents.
      */
-    private function sendSummary(string $targetNumber, int $count): void
+    private function sendSummary(string $targetNumber, int $count, string $summary = ""): void
     {
-        $adminMessage = "[FLOOD ALERT] There are currently {$count} pending SMS messages in the spool for number {$targetNumber}. Outgoing messages to this number are being suppressed for " . ($this->lockoutTime / 60) . " minutes.";
-        $recipientMessage = "[FLOOD ALERT] High volume of alerts detected. Further messages are being suppressed for " . ($this->lockoutTime / 60) . " minutes.";
+        $adminMessage = "[FLOOD ALERT] There are currently {$count} pending SMS messages in the spool for number {$targetNumber}. Outgoing messages to this number are being suppressed for " . ($this->lockoutTime / 60) . " minutes.{$summary}";
+        $recipientMessage = "[FLOOD ALERT] High volume of alerts detected. Further messages are being suppressed for " . ($this->lockoutTime / 60) . " minutes.{$summary}";
 
         // 1. Send to administrator if configured
         if (strlen($this->summaryNumber) === 10) {
@@ -149,23 +152,44 @@ class AaaFloodControlPlugin extends BasePlugin
     /**
      * Deletes all files in the outgoing spool directory for a specific number.
      * @param string $number
-     * @return int The number of files deleted.
+     * @return array ['count' => int, 'summary' => string]
      */
-    private function clearSpoolForNumber(string $number): int
+    private function clearSpoolForNumber(string $number): array
     {
         $dir = rtrim($this->outgoingDir, '/') . '/';
         $files = @scandir($dir);
-        if ($files === false) return 0;
+        if ($files === false) return ['count' => 0, 'summary' => ''];
 
         $count = 0;
+        $contents = [];
         foreach ($files as $file) {
             if ($file === '.' || $file === '..') continue;
-            if (is_file($dir . $file) && substr($file, -10) === $number) {
-                if (@unlink($dir . $file)) {
+            $filePath = $dir . $file;
+            if (is_file($filePath) && substr($file, -10) === $number) {
+                $content = @file_get_contents($filePath);
+                if ($content !== false) {
+                    $contents[] = trim($content);
+                }
+                if (@unlink($filePath)) {
                     $count++;
                 }
             }
         }
-        return $count;
+
+        // Create a short summary of unique message contents
+        $uniqueContents = array_unique($contents);
+        $summary = "";
+        if (!empty($uniqueContents)) {
+            $summary = " Messages included: " . implode(", ", array_slice($uniqueContents, 0, 3));
+            if (count($uniqueContents) > 3) {
+                $summary .= "... (and more)";
+            }
+            // Limit summary length to avoid huge SMS
+            if (strlen($summary) > 100) {
+                $summary = substr($summary, 0, 97) . "...";
+            }
+        }
+
+        return ['count' => $count, 'summary' => $summary];
     }
 }
