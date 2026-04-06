@@ -47,8 +47,8 @@ try {
     // 1. Test normal operation for both numbers (below threshold)
     echo "1. Testing normal operation for both numbers (below threshold)...\n";
     for ($i = 0; $i < 3; $i++) {
-        touch($tempSpool . '/msg' . $i . $number1);
-        touch($tempSpool . '/msg' . $i . $number2);
+        file_put_contents($tempSpool . '/msg' . $i . $number1, "Message content {$i}");
+        file_put_contents($tempSpool . '/msg' . $i . $number2, "Message content {$i}");
     }
     $result1 = $plugin->handleOutgoing(['number' => $number1, 'message' => 'Test 1']);
     $result2 = $plugin->handleOutgoing(['number' => $number2, 'message' => 'Test 2']);
@@ -60,7 +60,8 @@ try {
     // 2. Test threshold reached for number1 only (flood detection and spool clearing)
     echo "2. Testing flood detection and spool clearing for number1...\n";
     for ($i = 3; $i < 5; $i++) {
-        touch($tempSpool . '/msg' . $i . $number1);
+        $filename = 'msg' . $i . $number1;
+        file_put_contents($tempSpool . '/' . $filename, "Message content {$i}");
     }
     // Number1 spool count is now 5. Threshold is 5.
     $result1 = $plugin->handleOutgoing(['number' => $number1, 'message' => 'Trigger flood 1']);
@@ -126,6 +127,21 @@ try {
     if (!$foundRecipientSummary) {
         throw new Exception("Recipient summary message was not queued correctly.");
     }
+
+    // Check if summary contains message content
+    $foundContentInSummary = false;
+    foreach ($files as $file) {
+        if (strpos($file, $number1) !== false) {
+            $content = file_get_contents($tempSpool . '/' . $file);
+            if (strpos($content, 'Messages included: Message content') !== false) {
+                $foundContentInSummary = true;
+            }
+        }
+    }
+    if (!$foundContentInSummary) {
+         throw new Exception("Flood summary alert did not contain summarized message contents.");
+    }
+
     echo "   PASSED\n";
 
     echo "\nAll AaaFloodControlPlugin spool clearing tests PASSED!\n";

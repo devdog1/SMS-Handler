@@ -97,19 +97,46 @@ class PluginManager
      * This allows plugins to modify the message or cancel it.
      *
      * @param array $messageData The message data to be processed.
-     * @return array|null The final, potentially modified, message data, or null if sending was cancelled.
+     * @return array The final, potentially modified, message data, including status and withhold reason.
      */
-    public function dispatchOutgoing(array $messageData): ?array
+    public function dispatchOutgoing(array $messageData): array
     {
+        $messageData['status'] = 'sent';
+        $messageData['withhold_reason'] = null;
+
         $this->log("Dispatching outgoing message to " . count($this->plugins) . " plugins.");
+
+        // We want to ensure SmsLoggerPlugin runs last so it can log the final status accurately.
+        $loggerPlugin = null;
+        $otherPlugins = [];
         foreach ($this->plugins as $plugin) {
-            $messageData = $plugin->handleOutgoing($messageData);
-            if ($messageData === null) {
-                $this->log("Outgoing message cancelled by plugin: " . get_class($plugin));
-                return null; // A plugin cancelled the message
+            if (strpos(get_class($plugin), 'SmsLoggerPlugin') !== false) {
+                $loggerPlugin = $plugin;
+            } else {
+                $otherPlugins[] = $plugin;
             }
         }
-        $this->log("Finished processing outgoing message.");
+
+        foreach ($otherPlugins as $plugin) {
+            if ($messageData['status'] === 'withheld') {
+                break;
+            }
+
+            $result = $plugin->handleOutgoing($messageData);
+            if ($result === null) {
+                $this->log("Outgoing message cancelled by plugin: " . get_class($plugin));
+                $messageData['status'] = 'withheld';
+                $messageData['withhold_reason'] = (new ReflectionClass($plugin))->getShortName();
+            } else {
+                $messageData = $result;
+            }
+        }
+
+        if ($loggerPlugin) {
+            $messageData = $loggerPlugin->handleOutgoing($messageData);
+        }
+
+        $this->log("Finished processing outgoing message. Status: " . $messageData['status']);
         return $messageData;
     }
 }

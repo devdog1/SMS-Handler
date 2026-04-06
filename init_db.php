@@ -74,6 +74,8 @@ $query = "CREATE TABLE IF NOT EXISTS smsLog (
     dateTime DATETIME NOT NULL,
     message TEXT NOT NULL,
     eventId BIGINT DEFAULT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'sent',
+    withhold_reason VARCHAR(255) DEFAULT NULL,
     INDEX (sendTo),
     INDEX (eventId)
 )";
@@ -82,6 +84,14 @@ if ($dbh->query($query) === TRUE) {
     echo "Table smsLog created successfully or already exists.\n";
 } else {
     echo "Error creating table: " . $dbh->error . "\n";
+}
+
+// Migration for existing table
+$result = $dbh->query("SHOW COLUMNS FROM smsLog LIKE 'status'");
+if ($result->num_rows == 0) {
+    $dbh->query("ALTER TABLE smsLog ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'sent'");
+    $dbh->query("ALTER TABLE smsLog ADD COLUMN withhold_reason VARCHAR(255) DEFAULT NULL");
+    echo "Added 'status' and 'withhold_reason' columns to smsLog table.\n";
 }
 
 $dbh->close();
