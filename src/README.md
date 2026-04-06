@@ -22,7 +22,7 @@ The application is structured into two main directories within `src/`:
 
 ## Configuration
 
-Configuration is handled by `config.php`. For local environments, it is highly recommended to create a `config.local.php` file to override the default settings. The daemon will automatically load this file if it exists.
+Configuration is handled by `src/config.php`. For local environments, it is highly recommended to create a `src/config.local.php` file to override the default settings. The daemon will automatically load this file if it exists.
 
 1.  Copy the default config file:
     ```bash
@@ -46,29 +46,47 @@ return [
     'plugins' => [
         'block_numbers' => [
             '5551234567',
-            '5557654321',
         ],
         'allowed_area_codes' => [
             '204',
             '431',
         ],
+        'flood_control' => [
+            'threshold' => 50,
+            'summary_number' => '5551112222', // Admin number for flood alerts
+            'lockout_time' => 300, // Seconds
+        ],
         'oncall_groups' => [
             10 => 20, // Map On-Call group (ID 10) to Pool group (ID 20)
+        ],
+        'global_pause' => [
+            'authorized_group_id' => 12, // Zabbix User Group ID allowed to pause all
+        ],
+        'spool_clear' => [
+            'authorized_group_id' => 12, // Zabbix User Group ID allowed to clear spool
         ],
     ],
 ];
 ```
 
-## Special Configuration for Plugins
+## Database Initialization
 
-### Global Pause
-The `BbbGlobalPausePlugin` requires a dedicated database table. To initialize it, run:
+Several plugins (Global Pause, Number Pause, SMS Logger, etc.) require database tables to function. To initialize the database schema, run the following script:
+
 ```bash
 php init_db.php
 ```
 
+## Special Configuration for Plugins
+
 ### On-Call Manager
 The `OnCallManagerPlugin` requires a mapping in the `oncall_groups` config key. This mapping pairs an **On-Call Group ID** (the group that receives alerts) with a **Pool Group ID** (the group containing all users eligible for that rotation). A user can only switch on-call status for a rotation if they are already a member of its corresponding pool group.
+
+### Flood Control
+The `AaaFloodControlPlugin` monitors the outgoing spool. If a single recipient receives more than the `threshold` number of messages, the plugin will:
+1.  Enter a lockout period for that recipient.
+2.  Clear the pending messages for that recipient from the spool.
+3.  Send a summary alert to both the recipient and the configured `summary_number` (administrator).
 
 ## Production Setup and Usage
 
@@ -88,8 +106,6 @@ For a production environment, it is highly recommended to run the daemon as its 
 
 ### 2. User and Group Setup
 
-These steps ensure that the daemon runs as a non-privileged user (`sms-daemon`) and can safely interact with files created by another user (e.g., your web server user, `www-data`).
-
 1.  **Create a dedicated user and group for the daemon:**
     ```bash
     sudo groupadd --system sms-daemon
@@ -97,7 +113,6 @@ These steps ensure that the daemon runs as a non-privileged user (`sms-daemon`) 
     ```
 
 2.  **Create a shared group for the spool directory:**
-    This group will be shared by the `sms-daemon` user and the user that creates the message files (e.g., `www-data`).
     ```bash
     sudo groupadd sms-spool
     ```
@@ -105,96 +120,55 @@ These steps ensure that the daemon runs as a non-privileged user (`sms-daemon`) 
 3.  **Add users to the shared group:**
     ```bash
     sudo usermod -a -G sms-spool sms-daemon
-    sudo usermod -a -G sms-spool www-data  # Replace www-data with your web user if different
+    sudo usermod -a -G sms-spool www-data
     ```
 
 4.  **Set permissions for the spool directory:**
-    These commands give ownership of the spool directory to the shared group and ensure that new files created within it inherit the correct group permissions.
     ```bash
     sudo chown -R root:sms-spool /var/spool/sms
     sudo chmod -R 775 /var/spool/sms
     sudo chmod g+s /var/spool/sms
     ```
-    **Note:** For the group permissions to work correctly, the application that creates the message files must have a `umask` of `002`. This ensures files are created with group-write permissions (`664`).
 
 ### 3. Running as a Service (`systemd`)
 
 1.  **Copy the service file:**
-    A sample service file is provided. Copy it to the systemd directory.
     ```bash
     sudo cp /opt/sms-daemon/deployment/sms-daemon.service /etc/systemd/system/sms-daemon.service
     ```
 
-2.  **Reload the systemd daemon:**
+2.  **Reload, Enable, and Start:**
     ```bash
     sudo systemctl daemon-reload
-    ```
-
-3.  **Enable the service to start on boot:**
-    ```bash
     sudo systemctl enable sms-daemon.service
-    ```
-
-4.  **Start the service:**
-    ```bash
     sudo systemctl start sms-daemon.service
-    ```
-
-5.  **Check the service status:**
-    You can check the status and view recent logs with this command:
-    ```bash
-    sudo systemctl status sms-daemon.service
     ```
 
 ## Included Plugins
 
-The daemon comes with several pre-built plugins. Incoming messages are checked against each plugin in alphabetical order of the plugin's filename.
+Plugins are executed in alphabetical order.
 
-| Plugin                  | Trigger Keyword(s) | Description                                                                                             |
-| ----------------------- | ------------------ | ------------------------------------------------------------------------------------------------------- |
-| `AckCheckPlugin`        | (n/a)              | Checks if an alert has an active acknowledgement before sending; prevents duplicate notifications.      |
-| `AreaCodeWhitelistPlugin` | (n/a)              | If configured, only allows messages from/to area codes in the `plugins.allowed_area_codes` list.      |
-| `BbbGlobalPausePlugin`  | `pause <min>`, `unpause`, `pause status` | Temporarily pauses all outgoing SMS messages for authorized users. Capped at 180 minutes. |
-| `BlockNumberPlugin`     | (n/a)              | Blocks incoming/outgoing messages from/to numbers in the `plugins.block_numbers` config list.           |
-| `ZabbixAckPlugin`       | `120 E:54321`      | Acknowledges a Zabbix event. The first number is the duration in minutes.                               |
-| `BulkAckPlugin`         | `ok`, `go`, `fuck` | Performs a bulk acknowledgement of all recent events for the sender.                                    |
-| `HelpPlugin`            | `help`             | Lists all available commands and their descriptions for authorized users.                               |
-| `HistoryPlugin`         | `history`          | Responds with the last 5 messages that were sent to the requesting user.                                |
-| `OnCallManagerPlugin`   | `oncall`, `oncall <group>` | Lists on-call members or switches on-call status for a group to the sender (requires pool membership). |
-| `SignaturePlugin`       | (n/a)              | Appends a signature to all outgoing messages.                                                           |
-| `SmsLoggerPlugin`       | (n/a)              | Logs all sent messages to the `smsLog` database table.                                                  |
-| `ZabbixTriggerDisablePlugin` | `disable E:<id>` | Disables the Zabbix trigger associated with a specific event ID.                                     |
-| `ZzzDefaultReplyPlugin` | (any other text)   | A fallback that replies with a "bad message" response if no other plugin handles the SMS.               |
+| Plugin | Trigger Keyword(s) | Description |
+| :--- | :--- | :--- |
+| `AaaFloodControlPlugin` | (n/a) | Monitors outgoing spool for flooding and suppresses messages if threshold reached. |
+| `AaaZabbixAuthPlugin` | (n/a) | Authenticates incoming messages by checking if the sender exists in Zabbix user media. |
+| `AckCheckPlugin` | (n/a) | Checks if an alert has an active acknowledgement before sending. |
+| `AreaCodeWhitelistPlugin` | (n/a) | Restricts messages to/from configured area codes. |
+| `BbbGlobalPausePlugin` | `pause <min>`, `unpause`, `pause status` | Temporarily pauses all outgoing SMS messages for authorized users. |
+| `BlockNumberPlugin` | (n/a) | Blocks messages from/to specific numbers. |
+| `BulkAckPlugin` | `ok`, `fuck` | Bulk acknowledges all recent events for the sender. |
+| `HelpPlugin` | `help` | Lists available commands. |
+| `HistoryPlugin` | `history` | Responds with the last 5 messages sent to the user. |
+| `NumberPausePlugin` | `stop <min>`, `go` | Allows users to pause/resume alerts for their own number. |
+| `OnCallManagerPlugin` | `oncall`, `oncall <group>` | Lists on-call members or switches on-call status for a group. |
+| `SignaturePlugin` | (n/a) | Appends a signature to outgoing messages. |
+| `SmsLoggerPlugin` | (n/a) | Logs sent, withheld, and failed messages to the database. |
+| `SpoolClearPlugin` | `clear spool` | Clears the outgoing spool directory (authorized users only). |
+| `ZabbixAckPlugin` | `<min> E:<id>` | Acknowledges a specific Zabbix event. |
+| `ZabbixLastEventAckPlugin`| `ack <min>` | Acknowledges the last event sent to the sender. |
+| `ZabbixTriggerDisablePlugin`| `disable E:<id>` | Disables a Zabbix trigger. |
+| `ZzzDefaultReplyPlugin` | (any other text) | Fallback reply for unknown commands. |
 
-## Extending the Daemon (Creating a New Plugin)
+## Extending the Daemon
 
-The plugin system makes it easy to add new functionality. To create a new plugin:
-
-1.  Create a new PHP file in the `src/Plugins/` directory (e.g., `MyNewPlugin.php`).
-2.  Define a class that extends `BasePlugin`.
-3.  Implement the `handleIncoming(array $message): ?string` and/or `handleOutgoing(array $messageData): ?array` methods.
-    -   For incoming messages, check if the message is one your plugin should handle. If so, perform your logic and return a response string. Otherwise, return `null`.
-    -   For outgoing messages, perform your logic and return the modified message data, or return `null` to cancel sending.
-
-### Example Plugin
-
-Here is a simple example for a "ping" plugin.
-
-**`src/Plugins/PingPlugin.php`**:
-```php
-<?php
-namespace SmsDaemon\Plugins;
-
-class PingPlugin extends BasePlugin
-{
-    public function handleIncoming(array $message): ?string
-    {
-        if (strtolower(trim($message['text'])) === 'ping') {
-            $this->log("Handling ping request from {$message['sender']}.");
-            return 'pong';
-        }
-        return null; // Not a ping message, let other plugins handle it.
-    }
-}
-```
-The daemon will automatically discover and use this new plugin on its next run.
+To create a new plugin, add a PHP file to `src/Plugins/` extending `BasePlugin` and implementing `handleIncoming` or `handleOutgoing`.
