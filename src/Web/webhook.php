@@ -6,7 +6,7 @@
  */
 
 // Define root directory and load polyfills
-define('ROOT_DIR', __DIR__);
+define('ROOT_DIR', dirname(__DIR__));
 require_once ROOT_DIR . '/Lib/Polyfills.php';
 
 // --- Configuration Loading ---

@@ -4,7 +4,7 @@
  * Status page for SMS Daemon.
  */
 
-define('ROOT_DIR', __DIR__);
+define('ROOT_DIR', dirname(__DIR__));
 
 // --- Configuration Loading ---
 $config_file = ROOT_DIR . '/config.php';
