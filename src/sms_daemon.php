@@ -216,6 +216,22 @@ while (true) {
 
                 log_message("Processing message ID {$msg['id']} from {$msg['sender']}.");
                 $currentStatus['messages_received']++;
+
+                // DB Logging for Modem (Android Gateway logs in callback.php)
+                if ($backendType === 'modem') {
+                    $dbConfig = $config['database'] ?? [];
+                    $dbh = @new mysqli($dbConfig['host'], $dbConfig['user'], $dbConfig['pass'], $dbConfig['name']);
+                    if (!$dbh->connect_error) {
+                        $stmt = $dbh->prepare("INSERT INTO sms_incoming (sender, dateTime, message, event) VALUES (?, NOW(), ?, 'sms:received')");
+                        if ($stmt) {
+                            $stmt->bind_param('ss', $msg['sender'], $msg['text']);
+                            $stmt->execute();
+                            $stmt->close();
+                        }
+                        $dbh->close();
+                    }
+                }
+
                 $response = $pluginManager->dispatchIncoming($msg);
 
                 if ($response) {
