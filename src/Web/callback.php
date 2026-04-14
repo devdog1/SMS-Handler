@@ -35,6 +35,14 @@ function log_webhook(string $message) {
     }
 }
 
+function sanitize_phone_number(string $number): string {
+    $clean = preg_replace('/\D/', '', $number);
+    if (strlen($clean) > 10) {
+        return substr($clean, -10);
+    }
+    return $clean;
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     die("Method Not Allowed");
@@ -112,7 +120,7 @@ switch ($data['event']) {
 
 $messageData = [
     'id' => $data['id'],
-    'sender' => $payload['sender'] ?? $payload['phoneNumber'],
+    'sender' => sanitize_phone_number($payload['sender'] ?? $payload['phoneNumber']),
     'message' => $messageText,
     'timestamp' => $payload['receivedAt'] ?? date('c'),
     'event' => $data['event'],
