@@ -125,7 +125,9 @@ class AndroidSmsGatewayHandler implements SmsHandlerInterface
     public function listWebhooks(): array
     {
         $url = rtrim($this->config['baseUrl'], '/') . '/webhooks';
+        $this->log("Listing webhooks from: {$url}");
         $response = $this->makeRequest('GET', $url);
+        $this->log("Response code: " . ($response['httpCode'] ?? 'NULL'));
         return is_array($response['body']) ? $response['body'] : [];
     }
 
@@ -135,7 +137,9 @@ class AndroidSmsGatewayHandler implements SmsHandlerInterface
     public function deleteWebhook(string $id): bool
     {
         $url = rtrim($this->config['baseUrl'], '/') . '/webhooks/' . $id;
+        $this->log("Deleting webhook: {$url}");
         $response = $this->makeRequest('DELETE', $url);
+        $this->log("Response code: " . ($response['httpCode'] ?? 'NULL'));
         return $response['httpCode'] === 204;
     }
 
@@ -154,7 +158,9 @@ class AndroidSmsGatewayHandler implements SmsHandlerInterface
             $payload['deviceId'] = $this->config['deviceId'];
         }
 
+        $this->log("Registering webhook: POST {$url} with URL={$webhookUrl}, event={$event}");
         $response = $this->makeRequest('POST', $url, $payload);
+        $this->log("Response code: " . ($response['httpCode'] ?? 'NULL') . " Body: " . json_encode($response['body'] ?? []));
         return $response['httpCode'] === 201;
     }
 
