@@ -96,7 +96,7 @@ class AndroidSmsGatewayHandler implements SmsHandlerInterface
                 $messages[] = [
                     'id' => $data['id'],
                     'sender' => $data['sender'],
-                    'text' => $data['message'],
+                    'message' => $data['message'],
                     'timestamp' => $data['timestamp'],
                 ];
             }
