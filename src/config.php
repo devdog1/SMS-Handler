@@ -22,6 +22,7 @@ return [
         'deviceId' => '',
         'webhook' => [
             'enabled' => true,
+            'url' => 'https://sms-daemon.example.com/webhook.php',
             'secret' => '', // Signing key from app
         ],
     ],

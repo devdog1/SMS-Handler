@@ -88,6 +88,24 @@ if ($backendType === 'android_sms_gateway') {
 }
 
 
+// --- Webhook Auto-Configuration ---
+if ($backendType === 'android_sms_gateway' && ($config['android_sms_gateway']['webhook']['enabled'] ?? false)) {
+    $webhookUrl = $config['android_sms_gateway']['webhook']['url'] ?? '';
+    if (!empty($webhookUrl)) {
+        log_message("Configuring webhooks for Android SMS Gateway...");
+        $existingWebhooks = $smsHandler->listWebhooks();
+        foreach ($existingWebhooks as $wh) {
+            log_message("Removing existing webhook: {$wh['url']} ({$wh['id']})");
+            $smsHandler->deleteWebhook($wh['id']);
+        }
+        if ($smsHandler->registerWebhook($webhookUrl, 'sms:received')) {
+            log_message("Successfully registered webhook: {$webhookUrl}");
+        } else {
+            log_message("Failed to register webhook: {$webhookUrl}");
+        }
+    }
+}
+
 $pluginManager = new PluginManager(ROOT_DIR . '/Plugins', $config);
 
 $outgoingDir = $config['spool']['outgoing'];
