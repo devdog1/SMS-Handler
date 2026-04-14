@@ -22,6 +22,8 @@ return [
         'deviceId' => '',
         'webhook' => [
             'enabled' => true,
+            // NOTE: The Android SMS Gateway requires the URL to start with https://
+            // unless using http://127.0.0.1 for local testing.
             'url' => 'https://sms-daemon.example.com/webhook.php',
             'secret' => '', // Signing key from app
         ],
