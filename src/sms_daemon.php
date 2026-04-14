@@ -107,11 +107,14 @@ if ($backendType === 'android_sms_gateway' && ($config['android_sms_gateway']['w
             }
         }
 
-        log_message("VERBOSE: Registering new webhook URL: {$webhookUrl}");
-        if ($smsHandler->registerWebhook($webhookUrl, 'sms:received')) {
-            log_message("SUCCESS: Registered webhook: {$webhookUrl}");
-        } else {
-            log_message("ERROR: Failed to register webhook: {$webhookUrl}");
+        $events = ['mms:downloaded', 'mms:received', 'sms:data-received', 'sms:received'];
+        log_message("VERBOSE: Registering new webhooks for URL: {$webhookUrl}");
+        foreach ($events as $event) {
+            if ($smsHandler->registerWebhook($webhookUrl, $event)) {
+                log_message("SUCCESS: Registered webhook for event: {$event}");
+            } else {
+                log_message("ERROR: Failed to register webhook for event: {$event}");
+            }
         }
         log_message("VERBOSE: Webhook configuration step complete.");
     } else {
