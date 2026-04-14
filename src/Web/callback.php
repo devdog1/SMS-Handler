@@ -35,6 +35,14 @@ function log_webhook(string $message) {
     }
 }
 
+function sanitize_phone_number(string $number): string {
+    $clean = preg_replace('/\D/', '', $number);
+    if (strlen($clean) > 10) {
+        return substr($clean, -10);
+    }
+    return $clean;
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     die("Method Not Allowed");
@@ -75,7 +83,8 @@ if (!empty($webhookConfig['secret'])) {
 }
 
 $data = json_decode($body, true);
-if (!$data || !isset($data['event']) || $data['event'] !== 'sms:received') {
+$allowedEvents = ['mms:downloaded', 'mms:received', 'sms:data-received', 'sms:received'];
+if (!$data || !isset($data['event']) || !in_array($data['event'], $allowedEvents)) {
     // Ack anyway to stop retries if it's an event we don't care about
     http_response_code(200);
     exit;
@@ -92,11 +101,29 @@ if (!is_dir($spoolDir)) {
 }
 
 $payload = $data['payload'];
+$messageText = '';
+
+switch ($data['event']) {
+    case 'sms:received':
+        $messageText = $payload['message'] ?? '';
+        break;
+    case 'sms:data-received':
+        $messageText = '[DATA] ' . ($payload['data'] ?? '');
+        break;
+    case 'mms:received':
+        $messageText = '[MMS] ' . ($payload['subject'] ?? 'No Subject');
+        break;
+    case 'mms:downloaded':
+        $messageText = $payload['body'] ?? ($payload['subject'] ?? '[MMS Content]');
+        break;
+}
+
 $messageData = [
     'id' => $data['id'],
-    'sender' => $payload['sender'] ?? $payload['phoneNumber'],
-    'message' => $payload['message'],
-    'timestamp' => $payload['receivedAt'],
+    'sender' => sanitize_phone_number($payload['sender'] ?? $payload['phoneNumber']),
+    'message' => $messageText,
+    'timestamp' => $payload['receivedAt'] ?? date('c'),
+    'event' => $data['event'],
 ];
 
 $filename = rtrim($spoolDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . basename($data['id']);
