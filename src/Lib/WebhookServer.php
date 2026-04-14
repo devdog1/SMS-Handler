@@ -50,7 +50,21 @@ class WebhookServer
         if (!$this->server) return;
 
         while ($client = @stream_socket_accept($this->server, 0)) {
-            $this->processClient($client);
+            // Reap zombie processes
+            while (pcntl_waitpid(-1, $status, WNOHANG) > 0);
+
+            $pid = pcntl_fork();
+            if ($pid == -1) {
+                $this->log("Could not fork child process for webhook handling.");
+                $this->processClient($client); // Fallback to serial processing
+            } elseif ($pid) {
+                // Parent process
+                fclose($client); // Parent doesn't need this
+            } else {
+                // Child process
+                $this->processClient($client);
+                exit(0);
+            }
         }
     }
 
