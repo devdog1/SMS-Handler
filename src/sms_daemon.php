@@ -92,17 +92,30 @@ if ($backendType === 'android_sms_gateway') {
 if ($backendType === 'android_sms_gateway' && ($config['android_sms_gateway']['webhook']['enabled'] ?? false)) {
     $webhookUrl = $config['android_sms_gateway']['webhook']['url'] ?? '';
     if (!empty($webhookUrl)) {
-        log_message("Configuring webhooks for Android SMS Gateway...");
+        log_message("VERBOSE: Starting Webhook Auto-Configuration for Android SMS Gateway.");
+        log_message("VERBOSE: Target Webhook URL: {$webhookUrl}");
+
         $existingWebhooks = $smsHandler->listWebhooks();
+        log_message("VERBOSE: Found " . count($existingWebhooks) . " existing webhook(s).");
+
         foreach ($existingWebhooks as $wh) {
-            log_message("Removing existing webhook: {$wh['url']} ({$wh['id']})");
-            $smsHandler->deleteWebhook($wh['id']);
+            log_message("VERBOSE: Removing existing webhook ID {$wh['id']} (URL: {$wh['url']})");
+            if ($smsHandler->deleteWebhook($wh['id'])) {
+                log_message("VERBOSE: Successfully removed webhook ID {$wh['id']}.");
+            } else {
+                log_message("VERBOSE: Failed to remove webhook ID {$wh['id']}.");
+            }
         }
+
+        log_message("VERBOSE: Registering new webhook URL: {$webhookUrl}");
         if ($smsHandler->registerWebhook($webhookUrl, 'sms:received')) {
-            log_message("Successfully registered webhook: {$webhookUrl}");
+            log_message("SUCCESS: Registered webhook: {$webhookUrl}");
         } else {
-            log_message("Failed to register webhook: {$webhookUrl}");
+            log_message("ERROR: Failed to register webhook: {$webhookUrl}");
         }
+        log_message("VERBOSE: Webhook configuration step complete.");
+    } else {
+        log_message("WARNING: Webhook enabled but no URL configured in android_sms_gateway.webhook.url");
     }
 }
 
