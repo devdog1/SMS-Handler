@@ -96,7 +96,7 @@ class AndroidSmsGatewayHandler implements SmsHandlerInterface
                 $messages[] = [
                     'id' => $data['id'],
                     'sender' => $data['sender'],
-                    'text' => $data['message'],
+                    'message' => $data['message'],
                     'timestamp' => $data['timestamp'],
                 ];
             }
@@ -161,6 +161,11 @@ class AndroidSmsGatewayHandler implements SmsHandlerInterface
         $this->log("Registering webhook: POST {$url} with URL={$webhookUrl}, event={$event}");
         $response = $this->makeRequest('POST', $url, $payload);
         $this->log("Response code: " . ($response['httpCode'] ?? 'NULL') . " Body: " . json_encode($response['body'] ?? []));
+
+        if ($response['httpCode'] === 400 && !empty($response['body']['message'])) {
+            $this->log("ERROR during webhook registration: " . $response['body']['message']);
+        }
+
         return $response['httpCode'] === 201;
     }
 

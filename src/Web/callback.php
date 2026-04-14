@@ -43,6 +43,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $body = file_get_contents('php://input');
 $headers = array_change_key_case(getallheaders(), CASE_LOWER);
 
+// Debug dump if enabled
+if (!empty($webhookConfig['debug_dump']) && !empty($webhookConfig['debug_dump_file'])) {
+    $dump = "--- " . date('Y-m-d H:i:s') . " ---\n";
+    $dump .= "HEADERS:\n" . print_r($headers, true) . "\n";
+    $dump .= "BODY:\n" . $body . "\n\n";
+    @file_put_contents($webhookConfig['debug_dump_file'], $dump, FILE_APPEND);
+}
+
 // Verify HMAC if secret is configured
 if (!empty($webhookConfig['secret'])) {
     $signature = $headers['x-signature'] ?? '';

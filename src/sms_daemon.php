@@ -206,6 +206,11 @@ while (true) {
         if (!empty($incomingMessages)) {
             log_message("Found " . count($incomingMessages) . " new message(s).");
             foreach ($incomingMessages as $msg) {
+                // Standardize keys for plugins (modem uses 'text', webhooks use 'message')
+                if (!isset($msg['text']) && isset($msg['message'])) {
+                    $msg['text'] = $msg['message'];
+                }
+
                 log_message("Processing message ID {$msg['id']} from {$msg['sender']}.");
                 $currentStatus['messages_received']++;
                 $response = $pluginManager->dispatchIncoming($msg);
