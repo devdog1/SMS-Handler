@@ -134,5 +134,20 @@ if (file_put_contents($filename, json_encode($messageData)) === false) {
 }
 
 log_webhook("Stored incoming message from {$messageData['sender']} to {$filename}");
+
+// --- DB Logging ---
+$dbConfig = $config['database'] ?? [];
+if (!empty($dbConfig['host'])) {
+    $dbh = @new mysqli($dbConfig['host'], $dbConfig['user'], $dbConfig['pass'], $dbConfig['name']);
+    if (!$dbh->connect_error) {
+        $stmt = $dbh->prepare("INSERT INTO sms_incoming (sender, dateTime, message, event) VALUES (?, NOW(), ?, ?)");
+        if ($stmt) {
+            $stmt->bind_param('sss', $messageData['sender'], $messageData['message'], $messageData['event']);
+            $stmt->execute();
+            $stmt->close();
+        }
+        $dbh->close();
+    }
+}
 http_response_code(200);
 echo "OK";

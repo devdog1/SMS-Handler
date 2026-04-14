@@ -53,6 +53,7 @@ $spoolStats = [
 ];
 
 $recentLogs = [];
+$recentIncoming = [];
 $dbConfig = $config['database'];
 $dbh = @new mysqli($dbConfig['host'], $dbConfig['user'], $dbConfig['pass'], $dbConfig['name']);
 if (!$dbh->connect_error) {
@@ -62,6 +63,14 @@ if (!$dbh->connect_error) {
             $recentLogs[] = $row;
         }
     }
+
+    $resultIncoming = $dbh->query("SELECT * FROM sms_incoming ORDER BY dateTime DESC LIMIT 20");
+    if ($resultIncoming) {
+        while ($row = $resultIncoming->fetch_assoc()) {
+            $recentIncoming[] = $row;
+        }
+    }
+
     $dbh->close();
 }
 
@@ -154,37 +163,64 @@ $daemonLog = get_last_lines($config['daemon']['log_file'] ?? '');
     <?php endif; ?>
     <?php endif; ?>
 
-    <h2>Recent Activity (DB)</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Time</th>
-                <th>Recipient</th>
-                <th>Message</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($recentLogs as $log): ?>
-                <tr>
-                    <td><small><?= $log['dateTime'] ?></small></td>
-                    <td><?= htmlspecialchars($log['sendTo']) ?></td>
-                    <td><?= htmlspecialchars($log['message']) ?></td>
-                    <td>
-                        <span class="status-badge badge-<?= $log['status'] ?>">
-                            <?= htmlspecialchars($log['status']) ?>
-                        </span>
-                        <?php if ($log['withhold_reason']): ?>
-                            <br><small><em><?= htmlspecialchars($log['withhold_reason']) ?></em></small>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-            <?php if (empty($recentLogs)): ?>
-                <tr><td colspan="4">No recent activity found in database.</td></tr>
-            <?php endif; ?>
-        </tbody>
-    </table>
+    <div class="grid" style="grid-template-columns: 1fr 1fr;">
+        <div>
+            <h2>Recent Outgoing (DB)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Recipient</th>
+                        <th>Message</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($recentLogs as $log): ?>
+                        <tr>
+                            <td><small><?= $log['dateTime'] ?></small></td>
+                            <td><?= htmlspecialchars($log['sendTo']) ?></td>
+                            <td><?= htmlspecialchars($log['message']) ?></td>
+                            <td>
+                                <span class="status-badge badge-<?= $log['status'] ?>">
+                                    <?= htmlspecialchars($log['status']) ?>
+                                </span>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    <?php if (empty($recentLogs)): ?>
+                        <tr><td colspan="4">No recent outgoing found.</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+        <div>
+            <h2>Recent Incoming (DB)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Sender</th>
+                        <th>Message</th>
+                        <th>Event</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($recentIncoming as $log): ?>
+                        <tr>
+                            <td><small><?= $log['dateTime'] ?></small></td>
+                            <td><?= htmlspecialchars($log['sender']) ?></td>
+                            <td><?= htmlspecialchars($log['message']) ?></td>
+                            <td><small><?= htmlspecialchars($log['event']) ?></small></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    <?php if (empty($recentIncoming)): ?>
+                        <tr><td colspan="4">No recent incoming found.</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
 
     <h2>System Log (Last 20 lines)</h2>
     <pre><?= htmlspecialchars($daemonLog) ?></pre>

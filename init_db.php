@@ -86,6 +86,22 @@ if ($dbh->query($query) === TRUE) {
     echo "Error creating table: " . $dbh->error . "\n";
 }
 
+$query = "CREATE TABLE IF NOT EXISTS sms_incoming (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sender VARCHAR(20) NOT NULL,
+    dateTime DATETIME NOT NULL,
+    message TEXT NOT NULL,
+    event VARCHAR(50) DEFAULT 'sms:received',
+    INDEX (sender),
+    INDEX (dateTime)
+)";
+
+if ($dbh->query($query) === TRUE) {
+    echo "Table sms_incoming created successfully or already exists.\n";
+} else {
+    echo "Error creating table: " . $dbh->error . "\n";
+}
+
 // Migration for existing table
 $result = $dbh->query("SHOW COLUMNS FROM smsLog LIKE 'status'");
 if ($result->num_rows == 0) {

@@ -1,12 +1,12 @@
 # SMS Daemon
 
-A modular and extensible PHP daemon for sending and receiving SMS messages via a GSM modem.
+A modular and extensible PHP daemon for sending and receiving SMS messages via multiple backends.
 
 ## Overview
 
-This project is a long-running PHP script that connects to a GSM modem over a TCP socket to perform two main tasks:
+This project is a long-running PHP script that supports multiple backends (GSM modem or Android SMS Gateway) to perform two main tasks:
 1.  **Send outgoing messages**: It monitors a spool directory for files and sends them as SMS messages.
-2.  **Receive incoming messages**: It polls the modem for new messages and processes them using a plugin-based system.
+2.  **Receive incoming messages**: It polls the backend or listens for webhooks for new messages and processes them using a plugin-based system.
 
 The system is designed to be robust and easy to extend.
 
@@ -15,9 +15,13 @@ The system is designed to be robust and easy to extend.
 The application is structured into two main directories within `src/`:
 
 -   `Lib/`: Contains the core library classes that provide the main functionalities.
-    -   `Socket.php`: A low-level wrapper for TCP socket communication.
-    -   `Modem.php`: An abstraction layer for communicating with the GSM modem using AT commands.
+    -   `SmsHandlerInterface.php`: Defines the contract for SMS backends.
+    -   `Modem.php`: Communicates with a GSM modem using AT commands.
+    -   `AndroidSmsGatewayHandler.php`: Integrates with capcom6's Android SMS Gateway.
     -   `PluginManager.php`: Discovers, loads, and executes plugins.
+-   `Web/`: Web-facing components (requires Apache/Nginx).
+    -   `callback.php`: Receives incoming messages via webhooks from Android SMS Gateway.
+    -   `status.php`: A real-time monitoring dashboard.
 -   `Plugins/`: Contains the business logic for handling various types of incoming SMS messages. Each plugin is a self-contained class that handles a specific command or message type.
 
 ## Configuration
@@ -33,9 +37,22 @@ Configuration is handled by `src/config.php`. For local environments, it is high
 ```php
 // src/config.local.php
 return [
+    'backend' => 'modem', // 'modem' or 'android_sms_gateway'
+
     'modem' => [
         'host' => '192.168.1.100', // Your modem's IP
         'port' => 5000,
+    ],
+
+    'android_sms_gateway' => [
+        'baseUrl' => 'https://api.sms-gate.app/3rdparty/v1',
+        'login' => 'your_login',
+        'password' => 'your_password',
+        'webhook' => [
+            'enabled' => true,
+            'url' => 'https://your-public-url.com/callback.php',
+            'secret' => 'your_hmac_secret',
+        ],
     ],
     'database' => [
         'host' => 'localhost',
@@ -71,11 +88,26 @@ return [
 
 ## Database Initialization
 
-Several plugins (Global Pause, Number Pause, SMS Logger, etc.) require database tables to function. To initialize the database schema, run the following script:
+Several plugins and core features (Global Pause, SMS Logger, Dashboard, etc.) require database tables to function. To initialize the database schema, run the following script:
 
 ```bash
 php init_db.php
 ```
+
+## Monitoring Dashboard
+
+A web-based dashboard is available at `src/Web/status.php`. It provides:
+-   Real-time daemon health status (active/inactive).
+-   Spool statistics (Outgoing, Incoming, Failed).
+-   Recent database logs for both incoming and outgoing messages.
+-   Last 20 lines of the system log.
+
+## Webhook Configuration (Android SMS Gateway)
+
+When using the `android_sms_gateway` backend, the daemon will automatically synchronize webhook settings on startup.
+1.  Set the `url` in `config.php` to your public `callback.php` address.
+2.  The URL **must** use `https://` (per gateway requirements).
+3.  The daemon will clear old webhooks and register for SMS, MMS, and Data events.
 
 ## Special Configuration for Plugins
 
