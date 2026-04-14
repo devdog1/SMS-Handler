@@ -32,6 +32,14 @@ return [
         'incoming' => '/var/spool/sms/incoming/',
     ],
 
+    'daemon' => [
+        'send_interval' => 1, // sleep in seconds after sending one message
+        'loop_interval' => 5, // sleep in seconds at the end of the main loop
+        'send_batch_size' => 10, // max messages to send per cycle
+        'heartbeat_file' => sys_get_temp_dir() . '/sms_daemon_heartbeat.json',
+        'log_file' => sys_get_temp_dir() . '/sms_daemon.log',
+    ],
+
     'database' => [
         'host' => 'localhost',
         'user' => 'sms_user',
@@ -39,11 +47,6 @@ return [
         'name' => 'sms_daemon_db',
     ],
 
-    'daemon' => [
-        'send_interval' => 1, // sleep in seconds after sending one message
-        'loop_interval' => 5, // sleep in seconds at the end of the main loop
-        'send_batch_size' => 10, // max messages to send per cycle
-    ],
 
     'zabbix' => [
         'url' => 'http://zabbix/api_jsonrpc.php',

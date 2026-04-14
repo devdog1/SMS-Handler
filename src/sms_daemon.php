@@ -52,10 +52,27 @@ if (file_exists($local_config_file)) {
 $debug = $config['debug'] ?? false;
 
 function log_message(string $message) {
-    global $debug;
+    global $debug, $config;
     if ($debug) {
+        $logEntry = "[" . date('Y-m-d H:i:s') . "] SMS-DAEMON-MAIN: " . $message . PHP_EOL;
         // Using a consistent prefix for all daemon logs.
         error_log("SMS-DAEMON-MAIN: " . $message);
+
+        // Also log to the specific log file if configured
+        if (!empty($config['daemon']['log_file'])) {
+            @file_put_contents($config['daemon']['log_file'], $logEntry, FILE_APPEND);
+        }
+    }
+}
+
+function update_heartbeat(array $status) {
+    global $config;
+    if (!empty($config['daemon']['heartbeat_file'])) {
+        $data = [
+            'timestamp' => time(),
+            'status' => $status
+        ];
+        @file_put_contents($config['daemon']['heartbeat_file'], json_encode($data));
     }
 }
 
@@ -82,6 +99,14 @@ if (!is_dir($failedDir)) {
 // --- Main Loop ---
 log_message("Entering main processing loop using backend: {$backendType}");
 while (true) {
+    $currentStatus = [
+        'backend' => $backendType,
+        'last_cycle_start' => date('Y-m-d H:i:s'),
+        'messages_sent' => 0,
+        'messages_received' => 0,
+        'errors' => []
+    ];
+
     try {
         // --- Connection Management ---
         if (!$smsHandler->isConnected()) {
@@ -124,6 +149,7 @@ while (true) {
                 if ($smsHandler->sendMessage($processedMessageData['number'], $processedMessageData['message'])) {
                     log_message("Successfully sent message from file {$file}. Deleting file.");
                     @unlink($filePath);
+                    $currentStatus['messages_sent']++;
                 } else {
                     log_message("Failed to send message from file {$file} (Backend Error). Moving to failed directory.");
                     @rename($filePath, $failedDir . $file);
@@ -131,7 +157,7 @@ while (true) {
             }
 
             $sentCount++;
-            if ($sentCount >= $config['daemon']['send_batch_size']) {
+            if ($sentCount >= ($config['daemon']['send_batch_size'] ?? 10)) {
                 log_message("Sent batch of {$sentCount}. Pausing sending to allow for receiving.");
                 break;
             }
@@ -150,6 +176,7 @@ while (true) {
             log_message("Found " . count($incomingMessages) . " new message(s).");
             foreach ($incomingMessages as $msg) {
                 log_message("Processing message ID {$msg['id']} from {$msg['sender']}.");
+                $currentStatus['messages_received']++;
                 $response = $pluginManager->dispatchIncoming($msg);
 
                 if ($response) {
@@ -161,6 +188,7 @@ while (true) {
                 if (!$smsHandler->deleteMessage($msg['id'])) {
                     log_message("Failed to delete message ID {$msg['id']}. Disconnecting handler to reset state.");
                     $smsHandler->disconnect();
+                    $currentStatus['errors'][] = "Failed to delete message ID {$msg['id']}";
                     break; // Exit the inner message processing loop to restart the main loop
                 }
             }
@@ -173,9 +201,12 @@ while (true) {
         log_message("An exception occurred: " . $e->getMessage());
         log_message("Disconnecting SMS Handler due to error.");
         $smsHandler->disconnect();
+        $currentStatus['errors'][] = $e->getMessage();
     }
 
     // --- Sleep before next cycle ---
     log_message("Main loop cycle finished. Sleeping for {$config['daemon']['loop_interval']} seconds.");
+    $currentStatus['last_cycle_end'] = date('Y-m-d H:i:s');
+    update_heartbeat($currentStatus);
     sleep($config['daemon']['loop_interval']);
 }
