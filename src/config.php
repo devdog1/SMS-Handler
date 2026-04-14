@@ -7,10 +7,19 @@
 return [
     'debug' => true,
 
+    'backend' => 'modem', // 'modem' or 'android_sms_gateway'
+
     'modem' => [
         'host' => '192.168.1.100', // Example IP for a modem on the local network
         'port' => 5000,
         'timeout' => 10,
+    ],
+
+    'android_sms_gateway' => [
+        'baseUrl' => 'https://api.sms-gate.app/3rdparty/v1',
+        'login' => '',
+        'password' => '',
+        'deviceId' => '',
     ],
 
     'spool' => [

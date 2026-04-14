@@ -10,7 +10,7 @@ use \Exception;
  * Handles all communication with the GSM modem using AT commands.
  * This class abstracts the protocol details away from the main application.
  */
-class Modem
+class Modem implements SmsHandlerInterface
 {
     private $socket;
     private $config;
