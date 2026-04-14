@@ -229,10 +229,10 @@ class Modem implements SmsHandlerInterface
 
     /**
      * Deletes a message from the modem's storage.
-     * @param int $id The ID of the message to delete.
+     * @param mixed $id The ID of the message to delete.
      * @return bool True on success, false on failure.
      */
-    public function deleteMessage(int $id): bool
+    public function deleteMessage($id): bool
     {
         $this->log("Deleting message ID {$id}");
         return $this->executeCommand("AT+CMGD={$id}", "\r\nOK\r\n");
