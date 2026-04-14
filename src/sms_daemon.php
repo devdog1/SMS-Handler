@@ -31,6 +31,7 @@ spl_autoload_register(function ($class) {
 });
 
 use SmsDaemon\Lib\Modem;
+use SmsDaemon\Lib\AndroidSmsGatewayHandler;
 use SmsDaemon\Lib\PluginManager;
 
 // --- Configuration Loading ---
@@ -61,7 +62,13 @@ function log_message(string $message) {
 log_message("Daemon starting up. Debug mode is " . ($debug ? 'ON' : 'OFF'));
 
 // --- Initialization ---
-$modem = new Modem($config['modem'], $debug);
+$backendType = $config['backend'] ?? 'modem';
+if ($backendType === 'android_sms_gateway') {
+    $smsHandler = new AndroidSmsGatewayHandler($config['android_sms_gateway'], $debug);
+} else {
+    $smsHandler = new Modem($config['modem'], $debug);
+}
+
 $pluginManager = new PluginManager(ROOT_DIR . '/Plugins', $config);
 
 $outgoingDir = $config['spool']['outgoing'];
@@ -71,18 +78,18 @@ if (!is_dir($failedDir)) {
 }
 
 // --- Main Loop ---
-log_message("Entering main processing loop.");
+log_message("Entering main processing loop using backend: {$backendType}");
 while (true) {
     try {
         // --- Connection Management ---
-        if (!$modem->isConnected()) {
-            log_message("Modem is not connected. Attempting to connect...");
-            if (!$modem->connect()) {
-                log_message("Modem connection failed. Sleeping for 10 seconds before retry.");
+        if (!$smsHandler->isConnected()) {
+            log_message("SMS Handler is not connected. Attempting to connect...");
+            if (!$smsHandler->connect()) {
+                log_message("SMS Handler connection failed. Sleeping for 10 seconds before retry.");
                 sleep(10);
                 continue; // Restart the loop to try connecting again
             }
-            log_message("Modem connected successfully.");
+            log_message("SMS Handler connected successfully.");
         }
 
         // --- 1. Process Outgoing Messages ---
@@ -112,11 +119,11 @@ while (true) {
                 @unlink($filePath);
             } else {
                 log_message("Sending message to {$processedMessageData['number']} after plugin processing.");
-                if ($modem->sendMessage($processedMessageData['number'], $processedMessageData['message'])) {
+                if ($smsHandler->sendMessage($processedMessageData['number'], $processedMessageData['message'])) {
                     log_message("Successfully sent message from file {$file}. Deleting file.");
                     @unlink($filePath);
                 } else {
-                    log_message("Failed to send message from file {$file} (Modem Error). Moving to failed directory.");
+                    log_message("Failed to send message from file {$file} (Backend Error). Moving to failed directory.");
                     @rename($filePath, $failedDir . $file);
                 }
             }
@@ -136,7 +143,7 @@ while (true) {
 
         // --- 2. Process Incoming Messages ---
         log_message("Checking for incoming messages.");
-        $incomingMessages = $modem->listMessages();
+        $incomingMessages = $smsHandler->listMessages();
         if (!empty($incomingMessages)) {
             log_message("Found " . count($incomingMessages) . " new message(s).");
             foreach ($incomingMessages as $msg) {
@@ -145,13 +152,13 @@ while (true) {
 
                 if ($response) {
                     log_message("Plugin provided a response. Sending reply to {$msg['sender']}.");
-                    $modem->sendMessage($msg['sender'], $response);
+                    $smsHandler->sendMessage($msg['sender'], $response);
                 }
 
-                log_message("Deleting processed message ID {$msg['id']} from modem.");
-                if (!$modem->deleteMessage($msg['id'])) {
-                    log_message("Failed to delete message ID {$msg['id']}. Disconnecting modem to reset state.");
-                    $modem->disconnect();
+                log_message("Deleting processed message ID {$msg['id']} from backend.");
+                if (!$smsHandler->deleteMessage($msg['id'])) {
+                    log_message("Failed to delete message ID {$msg['id']}. Disconnecting handler to reset state.");
+                    $smsHandler->disconnect();
                     break; // Exit the inner message processing loop to restart the main loop
                 }
             }
@@ -160,10 +167,10 @@ while (true) {
         }
 
     } catch (\Exception $e) {
-        // Catch socket errors from the Modem class
+        // Catch errors from the SMS Handler
         log_message("An exception occurred: " . $e->getMessage());
-        log_message("Disconnecting modem due to error.");
-        $modem->disconnect();
+        log_message("Disconnecting SMS Handler due to error.");
+        $smsHandler->disconnect();
     }
 
     // --- Sleep before next cycle ---
