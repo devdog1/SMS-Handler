@@ -120,6 +120,45 @@ class AndroidSmsGatewayHandler implements SmsHandlerInterface
     }
 
     /**
+     * Lists registered webhooks.
+     */
+    public function listWebhooks(): array
+    {
+        $url = rtrim($this->config['baseUrl'], '/') . '/webhooks';
+        $response = $this->makeRequest('GET', $url);
+        return is_array($response['body']) ? $response['body'] : [];
+    }
+
+    /**
+     * Deletes a webhook.
+     */
+    public function deleteWebhook(string $id): bool
+    {
+        $url = rtrim($this->config['baseUrl'], '/') . '/webhooks/' . $id;
+        $response = $this->makeRequest('DELETE', $url);
+        return $response['httpCode'] === 204;
+    }
+
+    /**
+     * Registers a new webhook.
+     */
+    public function registerWebhook(string $webhookUrl, string $event): bool
+    {
+        $url = rtrim($this->config['baseUrl'], '/') . '/webhooks';
+        $payload = [
+            'url' => $webhookUrl,
+            'event' => $event,
+        ];
+
+        if (!empty($this->config['deviceId'])) {
+            $payload['deviceId'] = $this->config['deviceId'];
+        }
+
+        $response = $this->makeRequest('POST', $url, $payload);
+        return $response['httpCode'] === 201;
+    }
+
+    /**
      * Makes an HTTP request using cURL.
      */
     private function makeRequest(string $method, string $url, array $data = null): ?array
