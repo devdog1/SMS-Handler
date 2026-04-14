@@ -72,17 +72,24 @@ if ($backendType === 'android_sms_gateway') {
 }
 
 // Initialize Webhook Server if enabled and using Android Gateway
-$webhookServer = null;
 if ($backendType === 'android_sms_gateway' && ($config['android_sms_gateway']['webhook']['enabled'] ?? false)) {
-    $webhookServer = new WebhookServer(
-        $config['android_sms_gateway']['webhook'],
-        $incomingDir,
-        $debug
-    );
-    if (!$webhookServer->start()) {
-        log_message("Warning: Webhook server failed to start.");
-        $webhookServer = null;
+    $pid = pcntl_fork();
+    if ($pid == -1) {
+        log_message("FATAL: Could not fork for Webhook Server.");
+        exit(1);
+    } elseif ($pid === 0) {
+        // Child process: Webhook Server
+        // We re-initialize things here if needed, but for a simple server it's fine.
+        $webhookServer = new WebhookServer(
+            $config['android_sms_gateway']['webhook'],
+            $incomingDir,
+            $debug
+        );
+        $webhookServer->run();
+        exit(0);
     }
+    // Parent process continues to main loop
+    log_message("Webhook Server started in separate process (PID: $pid).");
 }
 
 $pluginManager = new PluginManager(ROOT_DIR . '/Plugins', $config);
@@ -190,31 +197,10 @@ while (true) {
     }
 
     // --- Sleep before next cycle ---
-    log_message("Main loop cycle finished. Waiting for {$config['daemon']['loop_interval']} seconds.");
+    log_message("Main loop cycle finished. Sleeping for {$config['daemon']['loop_interval']} seconds.");
 
-    // Use stream_select to wait for webhook connections while sleeping
-    $timeout = $config['daemon']['loop_interval'];
-    $endTime = time() + $timeout;
+    // Reap any child processes (like the webhook server if it crashes or its handlers)
+    while (pcntl_waitpid(-1, $status, WNOHANG) > 0);
 
-    while (time() < $endTime) {
-        $remaining = $endTime - time();
-        if ($remaining <= 0) break;
-
-        if ($webhookServer && ($serverResource = $webhookServer->getServerResource())) {
-            $read = [$serverResource];
-            $write = null;
-            $except = null;
-            $numChanged = @stream_select($read, $write, $except, $remaining);
-
-            if ($numChanged > 0) {
-                $webhookServer->handleClients();
-            } else {
-                // stream_select timed out or was interrupted
-                break;
-            }
-        } else {
-            sleep($remaining);
-            break;
-        }
-    }
+    sleep($config['daemon']['loop_interval']);
 }

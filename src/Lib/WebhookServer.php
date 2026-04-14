@@ -45,6 +45,44 @@ class WebhookServer
         return true;
     }
 
+    public function run(): void
+    {
+        if (!$this->start()) {
+            return;
+        }
+
+        $this->log("Entering webhook server loop.");
+        while (true) {
+            $read = [$this->server];
+            $write = null;
+            $except = null;
+            $numChanged = @stream_select($read, $write, $except, 5);
+
+            if ($numChanged > 0) {
+                while ($client = @stream_socket_accept($this->server, 0)) {
+                    // Reap zombie processes
+                    while (pcntl_waitpid(-1, $status, WNOHANG) > 0);
+
+                    $pid = pcntl_fork();
+                    if ($pid == -1) {
+                        $this->log("Could not fork child process for webhook handling.");
+                        $this->processClient($client); // Fallback to serial processing
+                    } elseif ($pid) {
+                        // Parent process
+                        fclose($client); // Parent doesn't need this
+                    } else {
+                        // Child process
+                        $this->processClient($client);
+                        exit(0);
+                    }
+                }
+            } else {
+                // Periodically reap zombies even if no new connections
+                while (pcntl_waitpid(-1, $status, WNOHANG) > 0);
+            }
+        }
+    }
+
     public function handleClients(): void
     {
         if (!$this->server) return;
