@@ -33,7 +33,6 @@ spl_autoload_register(function ($class) {
 use SmsDaemon\Lib\Modem;
 use SmsDaemon\Lib\AndroidSmsGatewayHandler;
 use SmsDaemon\Lib\PluginManager;
-use SmsDaemon\Lib\WebhookServer;
 
 // --- Configuration Loading ---
 $config_file = ROOT_DIR . '/config.php';
@@ -71,26 +70,6 @@ if ($backendType === 'android_sms_gateway') {
     $smsHandler = new Modem($config['modem'], $debug);
 }
 
-// Initialize Webhook Server if enabled and using Android Gateway
-if ($backendType === 'android_sms_gateway' && ($config['android_sms_gateway']['webhook']['enabled'] ?? false)) {
-    $pid = pcntl_fork();
-    if ($pid == -1) {
-        log_message("FATAL: Could not fork for Webhook Server.");
-        exit(1);
-    } elseif ($pid === 0) {
-        // Child process: Webhook Server
-        // We re-initialize things here if needed, but for a simple server it's fine.
-        $webhookServer = new WebhookServer(
-            $config['android_sms_gateway']['webhook'],
-            $incomingDir,
-            $debug
-        );
-        $webhookServer->run();
-        exit(0);
-    }
-    // Parent process continues to main loop
-    log_message("Webhook Server started in separate process (PID: $pid).");
-}
 
 $pluginManager = new PluginManager(ROOT_DIR . '/Plugins', $config);
 
@@ -198,9 +177,5 @@ while (true) {
 
     // --- Sleep before next cycle ---
     log_message("Main loop cycle finished. Sleeping for {$config['daemon']['loop_interval']} seconds.");
-
-    // Reap any child processes (like the webhook server if it crashes or its handlers)
-    while (pcntl_waitpid(-1, $status, WNOHANG) > 0);
-
     sleep($config['daemon']['loop_interval']);
 }

@@ -22,7 +22,6 @@ return [
         'deviceId' => '',
         'webhook' => [
             'enabled' => true,
-            'port' => 8080,
             'secret' => '', // Signing key from app
         ],
     ],

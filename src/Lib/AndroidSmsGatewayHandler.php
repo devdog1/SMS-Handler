@@ -83,9 +83,10 @@ class AndroidSmsGatewayHandler implements SmsHandlerInterface
 
         $messages = [];
         $files = @scandir($incomingDir) ?: [];
+        $baseDir = rtrim($incomingDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
         foreach ($files as $file) {
             if ($file === '.' || $file === '..') continue;
-            $filePath = $incomingDir . $file;
+            $filePath = $baseDir . $file;
             if (!is_file($filePath)) continue;
 
             $content = file_get_contents($filePath);
@@ -109,7 +110,7 @@ class AndroidSmsGatewayHandler implements SmsHandlerInterface
         $incomingDir = $this->config['spool']['incoming'] ?? null;
         if (!$incomingDir) return false;
 
-        $filePath = $incomingDir . basename($id);
+        $filePath = rtrim($incomingDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . basename($id);
         if (file_exists($filePath)) {
             $this->log("Deleting message file: {$id}");
             return @unlink($filePath);
