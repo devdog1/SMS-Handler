@@ -15,9 +15,10 @@ class AndroidSmsGatewayHandler implements SmsHandlerInterface
     private $debug;
     private $connected = false;
 
-    public function __construct(array $config, bool $debug = false)
+    public function __construct(array $config, bool $debug = false, array $spoolConfig = [])
     {
         $this->config = $config;
+        $this->config['spool'] = $spoolConfig;
         $this->debug = $debug;
     }
 
@@ -55,7 +56,7 @@ class AndroidSmsGatewayHandler implements SmsHandlerInterface
         $url = rtrim($this->config['baseUrl'], '/') . '/messages';
         $payload = [
             'phoneNumbers' => [$number],
-            'textMessage' => ['text' => $message],
+            'message' => $message,
         ];
 
         if (!empty($this->config['deviceId'])) {
@@ -75,21 +76,46 @@ class AndroidSmsGatewayHandler implements SmsHandlerInterface
 
     public function listMessages(): array
     {
-        // Android SMS Gateway primarily uses webhooks for incoming messages.
-        // However, it has an export endpoint that triggers webhooks for existing messages.
-        // This daemon's architecture expects a polling-style listMessages().
-        // For now, we return an empty array as incoming messages should ideally be
-        // handled via a separate webhook endpoint (which would need to be added to this project).
-        // Alternatively, if the user really needs polling, we might need a different approach.
-        $this->log("listMessages() called. Note: Android SMS Gateway typically uses webhooks for incoming messages.");
-        return [];
+        $incomingDir = $this->config['spool']['incoming'] ?? null;
+        if (!$incomingDir || !is_dir($incomingDir)) {
+            return [];
+        }
+
+        $messages = [];
+        $files = @scandir($incomingDir) ?: [];
+        foreach ($files as $file) {
+            if ($file === '.' || $file === '..') continue;
+            $filePath = $incomingDir . $file;
+            if (!is_file($filePath)) continue;
+
+            $content = file_get_contents($filePath);
+            $data = json_decode($content, true);
+            if ($data) {
+                // Ensure internal format is consistent
+                $messages[] = [
+                    'id' => $data['id'],
+                    'sender' => $data['sender'],
+                    'text' => $data['message'],
+                    'timestamp' => $data['timestamp'],
+                ];
+            }
+        }
+
+        return $messages;
     }
 
     public function deleteMessage($id): bool
     {
-        // Deleting messages from the Android device via this API isn't a direct 1-to-1 with AT commands.
-        $this->log("deleteMessage($id) called. Not implemented for Android SMS Gateway.");
-        return true; // Return true to avoid blocking the loop
+        $incomingDir = $this->config['spool']['incoming'] ?? null;
+        if (!$incomingDir) return false;
+
+        $filePath = $incomingDir . basename($id);
+        if (file_exists($filePath)) {
+            $this->log("Deleting message file: {$id}");
+            return @unlink($filePath);
+        }
+
+        return false;
     }
 
     /**

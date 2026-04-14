@@ -20,11 +20,17 @@ return [
         'login' => '',
         'password' => '',
         'deviceId' => '',
+        'webhook' => [
+            'enabled' => true,
+            'port' => 8080,
+            'secret' => '', // Signing key from app
+        ],
     ],
 
     'spool' => [
         'outgoing' => '/var/spool/sms/',
         'failed' => '/var/spool/sms/failed/',
+        'incoming' => '/var/spool/sms/incoming/',
     ],
 
     'database' => [

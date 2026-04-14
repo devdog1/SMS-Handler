@@ -33,6 +33,7 @@ spl_autoload_register(function ($class) {
 use SmsDaemon\Lib\Modem;
 use SmsDaemon\Lib\AndroidSmsGatewayHandler;
 use SmsDaemon\Lib\PluginManager;
+use SmsDaemon\Lib\WebhookServer;
 
 // --- Configuration Loading ---
 $config_file = ROOT_DIR . '/config.php';
@@ -63,10 +64,25 @@ log_message("Daemon starting up. Debug mode is " . ($debug ? 'ON' : 'OFF'));
 
 // --- Initialization ---
 $backendType = $config['backend'] ?? 'modem';
+$incomingDir = $config['spool']['incoming'] ?? null;
 if ($backendType === 'android_sms_gateway') {
-    $smsHandler = new AndroidSmsGatewayHandler($config['android_sms_gateway'], $debug);
+    $smsHandler = new AndroidSmsGatewayHandler($config['android_sms_gateway'], $debug, $config['spool']);
 } else {
     $smsHandler = new Modem($config['modem'], $debug);
+}
+
+// Initialize Webhook Server if enabled and using Android Gateway
+$webhookServer = null;
+if ($backendType === 'android_sms_gateway' && ($config['android_sms_gateway']['webhook']['enabled'] ?? false)) {
+    $webhookServer = new WebhookServer(
+        $config['android_sms_gateway']['webhook'],
+        $incomingDir,
+        $debug
+    );
+    if (!$webhookServer->start()) {
+        log_message("Warning: Webhook server failed to start.");
+        $webhookServer = null;
+    }
 }
 
 $pluginManager = new PluginManager(ROOT_DIR . '/Plugins', $config);
@@ -174,6 +190,31 @@ while (true) {
     }
 
     // --- Sleep before next cycle ---
-    log_message("Main loop cycle finished. Sleeping for {$config['daemon']['loop_interval']} seconds.");
-    sleep($config['daemon']['loop_interval']);
+    log_message("Main loop cycle finished. Waiting for {$config['daemon']['loop_interval']} seconds.");
+
+    // Use stream_select to wait for webhook connections while sleeping
+    $timeout = $config['daemon']['loop_interval'];
+    $endTime = time() + $timeout;
+
+    while (time() < $endTime) {
+        $remaining = $endTime - time();
+        if ($remaining <= 0) break;
+
+        if ($webhookServer && ($serverResource = $webhookServer->getServerResource())) {
+            $read = [$serverResource];
+            $write = null;
+            $except = null;
+            $numChanged = @stream_select($read, $write, $except, $remaining);
+
+            if ($numChanged > 0) {
+                $webhookServer->handleClients();
+            } else {
+                // stream_select timed out or was interrupted
+                break;
+            }
+        } else {
+            sleep($remaining);
+            break;
+        }
+    }
 }
